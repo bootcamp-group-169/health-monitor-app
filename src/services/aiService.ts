@@ -100,8 +100,8 @@ export const chatWithAI = async (
 ): Promise<string> => {
   try {
     const prompt = context
-      ? `Context: ${context}\n\nUser: ${message}\n\nAssistant:`
-      : `User: ${message}\n\nAssistant:`;
+      ? `Context: ${context}\n\nUser: ${message}\n\nAssistant: Sadece düz metin olarak yanıt ver. Markdown formatı, **, *, __, _ gibi işaretler kullanma. Sadece normal yazı yaz.`
+      : `User: ${message}\n\nAssistant: Sadece düz metin olarak yanıt ver. Markdown formatı, **, *, __, _ gibi işaretler kullanma. Sadece normal yazı yaz.`;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
@@ -132,7 +132,7 @@ export const generateNutritionPlan = async (
     - Diyet Kısıtlamaları: ${userProfile.dietaryRestrictions.join(", ")}
     - Aktivite Seviyesi: ${userProfile.activityLevel}
     
-    SADECE JSON formatında yanıt ver, başka hiçbir şey yazma:
+    SADECE JSON formatında yanıt ver, başka hiçbir şey yazma. Markdown kullanma:
     {
       "title": "7 Günlük Beslenme Planı",
       "description": "Hastalığınıza özel kişiselleştirilmiş beslenme planı",
@@ -194,52 +194,56 @@ export const generateNutritionPlan = async (
           userProfile.activityLevel
         } yaşam tarzına sahip ve ${userProfile.dietaryRestrictions.join(
           ", "
-        )} alerjisi olan ${
+        )} kısıtlaması olan ${
           userProfile.disease
-        } hastası için kişiselleştirilmiş beslenme planı.`,
+        } hastası için özel olarak hazırlanmış detaylı beslenme planı.`,
         duration: "7 gün",
         meals: [
           {
-            meal: "Kahvaltı",
-            foods: ["yulaf ezmesi", "muz", "badem sütü", "badem"],
-            calories: 350,
-            notes: "Laktoz içermeyen süt kullanın, yavaş yiyin",
+            meal: "Kahvaltı (08:00)",
+            foods: ["yulaf ezmesi", "muz", "badem sütü", "badem", "bal"],
+            calories: 380,
+            notes:
+              "Laktoz içermeyen badem sütü kullanın. Yavaş yiyin ve iyi çiğneyin.",
           },
           {
-            meal: "Ara Öğün",
-            foods: ["elma", "ceviz"],
-            calories: 150,
-            notes: "Kabuklu meyve tüketmeyin",
+            meal: "Ara Öğün (10:30)",
+            foods: ["elma", "ceviz", "su"],
+            calories: 180,
+            notes: "Kabuklu meyve tüketmeyin. Bol su için.",
           },
           {
-            meal: "Öğle Yemeği",
-            foods: ["pirinç", "tavuk göğsü", "havuç", "zeytinyağı"],
-            calories: 500,
-            notes: "Baharat kullanmayın, yağsız pişirin",
+            meal: "Öğle Yemeği (13:00)",
+            foods: ["pirinç", "tavuk göğsü", "havuç", "zeytinyağı", "salata"],
+            calories: 520,
+            notes: "Baharat kullanmayın, yağsız pişirin.",
           },
           {
-            meal: "Ara Öğün",
-            foods: ["yoğurt", "muz"],
-            calories: 200,
-            notes: "Laktoz içermeyen yoğurt tercih edin",
+            meal: "Ara Öğün (16:00)",
+            foods: ["yoğurt", "muz", "badem"],
+            calories: 220,
+            notes: "Laktoz içermeyen yoğurt tercih edin.",
           },
           {
-            meal: "Akşam Yemeği",
-            foods: ["balık", "patates", "salata", "zeytinyağı"],
-            calories: 450,
-            notes: "Yağsız pişirin, yavaş yiyin",
+            meal: "Akşam Yemeği (19:00)",
+            foods: ["balık", "patates", "salata", "zeytinyağı", "limon"],
+            calories: 480,
+            notes: "Yağsız pişirin, yavaş yiyin.",
           },
         ],
         recommendations: [
           "Günde 8-10 bardak su için",
-          "Yavaş yiyin ve iyi çiğneyin",
-          "Gazlı içeceklerden kaçının",
-          "Baharatlı ve yağlı yiyeceklerden uzak durun",
+          "Yavaş yiyin ve her lokmayı iyi çiğneyin",
+          "Gazlı içecekler, kafein ve alkolden kaçının",
+          "Baharatlı, yağlı ve işlenmiş yiyeceklerden uzak durun",
           "Düzenli öğün saatlerine uyun",
-          "Stres yönetimi için nefes egzersizleri yapın",
         ],
       };
     }
+
+    // Sadece güvenlik kontrolü - AI'dan gelen veriyi bozma
+    if (!planData.meals) planData.meals = [];
+    if (!planData.recommendations) planData.recommendations = [];
 
     return {
       id: Date.now().toString(),
@@ -266,7 +270,7 @@ export const generateFitnessPlan = async (
     - Boy: ${userProfile.height} cm
     - Aktivite Seviyesi: ${userProfile.activityLevel}
     
-    SADECE JSON formatında yanıt ver, başka hiçbir şey yazma:
+    SADECE JSON formatında yanıt ver, başka hiçbir şey yazma. Markdown kullanma:
     {
       "title": "7 Günlük Fitness Planı",
       "description": "Hastalığınıza özel kişiselleştirilmiş fitness planı",
@@ -325,52 +329,69 @@ export const generateFitnessPlan = async (
       // Fallback plan oluştur
       planData = {
         title: `${userProfile.disease} Hastası için 7 Günlük Fitness Planı`,
-        description: `${userProfile.age} yaşındaki, ${userProfile.weight} kg, ${userProfile.height} cm boyundaki, ${userProfile.activityLevel} yaşam tarzına sahip ${userProfile.disease} hastası için kişiselleştirilmiş fitness planı.`,
+        description: `${userProfile.age} yaşındaki, ${userProfile.weight} kg, ${userProfile.height} cm boyundaki, ${userProfile.activityLevel} yaşam tarzına sahip ${userProfile.disease} hastası için özel olarak hazırlanmış detaylı fitness planı. Bu plan, hastalığınızın semptomlarını azaltmaya, stresi yönetmeye ve genel sağlığınızı iyileştirmeye yönelik olarak tasarlanmıştır.`,
         duration: "7 gün",
         exercises: [
           {
-            name: "Hafif Yürüyüş",
-            sets: 1,
-            reps: 0,
-            duration: "20-30 dakika",
-            notes: "Yavaş tempoda yürüyün, karın bölgesini zorlamayın",
-          },
-          {
-            name: "Nefes Egzersizleri",
+            name: "Sabah Nefes Egzersizleri (08:00)",
             sets: 3,
             reps: 10,
-            duration: "5 dakika",
-            notes: "Derin nefes alın, stres azaltın",
+            duration: "10 dakika",
+            notes:
+              "Yatakta oturarak derin nefes alın. 4 saniye nefes al, 6 saniye tut, 8 saniye ver. Stres azaltır ve güne başlangıç için idealdir.",
           },
           {
-            name: "Hafif Yoga (Oturarak)",
+            name: "Hafif Yürüyüş (10:00)",
             sets: 1,
             reps: 0,
-            duration: "15 dakika",
-            notes: "Karın bölgesini zorlamayın, yumuşak hareketler",
+            duration: "25-30 dakika",
+            notes:
+              "Yavaş tempoda yürüyün, karın bölgesini zorlamayın. Parkta veya evde yapabilirsiniz. Rahat ayakkabı giyin.",
           },
           {
-            name: "Esneme Egzersizleri",
+            name: "Oturarak Yoga (14:00)",
+            sets: 1,
+            reps: 0,
+            duration: "20 dakika",
+            notes:
+              "Karın bölgesini zorlamayın, yumuşak hareketler yapın. Omurga esnekliği için ideal. Rahat kıyafet giyin.",
+          },
+          {
+            name: "Esneme Egzersizleri (16:00)",
             sets: 2,
             reps: 5,
-            duration: "10 dakika",
-            notes: "Yavaş ve kontrollü hareketler yapın",
+            duration: "15 dakika",
+            notes:
+              "Yavaş ve kontrollü hareketler yapın. Kas gerginliğini azaltır. Her hareketi 30 saniye tutun.",
           },
           {
-            name: "Hafif Pilates",
+            name: "Akşam Nefes Egzersizleri (20:00)",
+            sets: 2,
+            reps: 8,
+            duration: "8 dakika",
+            notes:
+              "Uyumadan önce sakinleştirici nefes egzersizleri. 4-7-8 tekniği kullanın. Stres azaltır ve uyku kalitesini artırır.",
+          },
+          {
+            name: "Hafif Pilates (22:00)",
             sets: 1,
             reps: 0,
-            duration: "15 dakika",
-            notes: "Karın kaslarını zorlamayın",
+            duration: "12 dakika",
+            notes:
+              "Karın kaslarını zorlamayın. Hafif core egzersizleri. Uyumadan önce rahatlatıcı hareketler.",
           },
         ],
         recommendations: [
-          "Günde 30-45 dakika hafif egzersiz yapın",
-          "Ağır egzersizlerden ve karın bölgesini zorlayan hareketlerden kaçının",
-          "Egzersiz öncesi ve sonrası bol su için",
-          "Stres yönetimi için nefes egzersizlerini düzenli yapın",
-          "Egzersiz sırasında rahatsızlık hissederseniz durun",
-          "Düzenli yürüyüş yapın ama aşırıya kaçmayın",
+          "Günde toplam 45-60 dakika hafif egzersiz yapın, bölümlere ayırın",
+          "Ağır egzersizlerden, koşudan ve karın bölgesini zorlayan hareketlerden kesinlikle kaçının",
+          "Egzersiz öncesi 30 dakika, sonrası 15 dakika su için",
+          "Stres yönetimi için nefes egzersizlerini günde 2-3 kez yapın",
+          "Egzersiz sırasında rahatsızlık, ağrı veya yorgunluk hissederseniz hemen durun",
+          "Düzenli yürüyüş yapın ama aşırıya kaçmayın, günde maksimum 30 dakika",
+          "Egzersiz öncesi ısınma, sonrası soğuma yapın",
+          "Doktorunuzla egzersiz planınızı paylaşın ve onay alın",
+          "Hastalık alevlenme dönemlerinde egzersizi azaltın veya durdurun",
+          "Egzersiz günlüğü tutun ve hangi hareketlerin size iyi geldiğini not edin",
         ],
       };
     }
@@ -378,6 +399,8 @@ export const generateFitnessPlan = async (
     return {
       id: Date.now().toString(),
       ...planData,
+      exercises: planData.exercises || [],
+      recommendations: planData.recommendations || [],
     };
   } catch (error) {
     console.error("Fitness plan generation error:", error);

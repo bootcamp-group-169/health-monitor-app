@@ -58,6 +58,20 @@ export const AIAssistant: React.FC = () => {
     removeNutritionPlan,
     removeFitnessPlan,
   } = useHealthStore();
+
+  // Markdown formatını temizle
+  const cleanMarkdown = (text: string) => {
+    return text
+      .replace(/\*\*\*/g, "") // *** -> boş
+      .replace(/\*\*/g, "") // ** -> boş
+      .replace(/\*/g, "") // * -> boş
+      .replace(/__/g, "") // __ -> boş
+      .replace(/_/g, "") // _ -> boş
+      .replace(/`/g, "") // ` -> boş
+      .replace(/#{1,6}\s/g, "") // # ## ### -> boş
+      .replace(/\n\n/g, "\n") // Çift satır sonlarını tek yap
+      .trim();
+  };
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -147,8 +161,11 @@ export const AIAssistant: React.FC = () => {
 
   const handleViewPlan = (plan: any) => {
     console.log("Viewing plan:", plan);
+    console.log("Plan meals:", plan.meals);
+    console.log("Plan exercises:", plan.exercises);
     setSelectedPlan(plan);
     setPlanDialogOpen(true);
+    console.log("Dialog should be open now");
   };
 
   const handleDeletePlan = (type: "nutrition" | "fitness", id: string) => {
@@ -160,21 +177,14 @@ export const AIAssistant: React.FC = () => {
   };
 
   const renderPlanDialog = () => {
-    if (!selectedPlan) return null;
+    if (!selectedPlan || !planDialogOpen) return null;
 
     return (
       <Dialog
-        open={planDialogOpen}
+        open={true}
         onClose={() => setPlanDialogOpen(false)}
         maxWidth="md"
         fullWidth
-        PaperProps={{
-          style: {
-            background: "rgba(255, 255, 255, 0.95)",
-            backdropFilter: "blur(20px)",
-            borderRadius: 16,
-          },
-        }}
       >
         <DialogTitle>
           <Typography variant="h5" sx={{ fontWeight: 600, color: "#667eea" }}>
@@ -184,6 +194,9 @@ export const AIAssistant: React.FC = () => {
         <DialogContent>
           <Typography variant="body1" sx={{ mb: 3 }}>
             {selectedPlan.description}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Plan ID: {selectedPlan.id}
           </Typography>
 
           {selectedPlan.meals && selectedPlan.meals.length > 0 && (
@@ -208,7 +221,8 @@ export const AIAssistant: React.FC = () => {
                     {meal.meal}
                   </Typography>
                   <Typography variant="body2" sx={{ mb: 1 }}>
-                    <strong>Besinler:</strong> {meal.foods.join(", ")}
+                    <strong>Besinler:</strong>{" "}
+                    {meal.foods?.join(", ") || "Belirtilmemiş"}
                   </Typography>
                   <Typography variant="body2" sx={{ mb: 1 }}>
                     <strong>Kalori:</strong> {meal.calories} kcal
@@ -279,14 +293,7 @@ export const AIAssistant: React.FC = () => {
             )}
         </DialogContent>
         <DialogActions>
-          <Button
-            onClick={() => setPlanDialogOpen(false)}
-            variant="contained"
-            sx={{
-              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-              borderRadius: 2,
-            }}
-          >
+          <Button onClick={() => setPlanDialogOpen(false)} variant="contained">
             Kapat
           </Button>
         </DialogActions>
@@ -352,7 +359,9 @@ export const AIAssistant: React.FC = () => {
                         }}
                       >
                         <Typography variant="body2">
-                          {message.content}
+                          {message.type === "ai"
+                            ? cleanMarkdown(message.content)
+                            : message.content}
                         </Typography>
                         <Typography
                           variant="caption"
@@ -477,7 +486,6 @@ export const AIAssistant: React.FC = () => {
                     Fitness Planı Oluştur
                   </Button>
                 </Grid>
-
               </Grid>
 
               {isLoading && (
@@ -669,7 +677,129 @@ export const AIAssistant: React.FC = () => {
         </CardContent>
       </GlassCard>
 
-      {renderPlanDialog()}
+      <Dialog
+        open={planDialogOpen}
+        onClose={() => setPlanDialogOpen(false)}
+        maxWidth="lg"
+        fullWidth
+        PaperProps={{
+          sx: {
+            maxHeight: "90vh",
+            overflow: "auto",
+          },
+        }}
+      >
+        <DialogTitle>
+          <Typography variant="h5" sx={{ fontWeight: 600, color: "#667eea" }}>
+            {selectedPlan?.title || "Plan Detayları"}
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" sx={{ mb: 3 }}>
+            {selectedPlan?.description || "Plan açıklaması"}
+          </Typography>
+
+          {selectedPlan?.meals && selectedPlan.meals.length > 0 && (
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+                Öğünler
+              </Typography>
+              {selectedPlan.meals.map((meal: any, index: number) => (
+                <Box
+                  key={index}
+                  sx={{
+                    mb: 2,
+                    p: 2,
+                    bgcolor: "rgba(102, 126, 234, 0.1)",
+                    borderRadius: 2,
+                  }}
+                >
+                  <Typography
+                    variant="subtitle1"
+                    sx={{ fontWeight: 600, mb: 1 }}
+                  >
+                    {meal.meal}
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 1 }}>
+                    <strong>Besinler:</strong>{" "}
+                    {Array.isArray(meal.foods) && meal.foods.length > 0
+                      ? meal.foods.join(", ")
+                      : "AI'dan anlamlı veri alınamadı. Lütfen tekrar deneyin."}
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 1 }}>
+                    <strong>Kalori:</strong> {meal.calories} kcal
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {meal.notes}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+          )}
+
+          {selectedPlan?.exercises && selectedPlan.exercises.length > 0 && (
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+                Egzersizler
+              </Typography>
+              {selectedPlan.exercises.map((exercise: any, index: number) => (
+                <Box
+                  key={index}
+                  sx={{
+                    mb: 2,
+                    p: 2,
+                    bgcolor: "rgba(102, 126, 234, 0.1)",
+                    borderRadius: 2,
+                  }}
+                >
+                  <Typography
+                    variant="subtitle1"
+                    sx={{ fontWeight: 600, mb: 1 }}
+                  >
+                    {exercise.name}
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 1 }}>
+                    <strong>Set:</strong> {exercise.sets} |{" "}
+                    <strong>Tekrar:</strong> {exercise.reps} |{" "}
+                    <strong>Süre:</strong> {exercise.duration}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {exercise.notes}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+          )}
+
+          {selectedPlan?.recommendations &&
+            selectedPlan.recommendations.length > 0 && (
+              <Box>
+                <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+                  Öneriler
+                </Typography>
+                <List>
+                  {selectedPlan.recommendations.map(
+                    (rec: string, index: number) => (
+                      <ListItem key={index} sx={{ py: 0.5 }}>
+                        <ListItemIcon sx={{ minWidth: 32 }}>
+                          <Typography variant="body2" color="primary">
+                            •
+                          </Typography>
+                        </ListItemIcon>
+                        <ListItemText primary={rec} />
+                      </ListItem>
+                    )
+                  )}
+                </List>
+              </Box>
+            )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPlanDialogOpen(false)} variant="contained">
+            Kapat
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

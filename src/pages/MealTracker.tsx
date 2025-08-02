@@ -30,6 +30,7 @@ import {
   Divider,
   Slider,
   IconButton,
+  Tooltip,
 } from "@mui/material";
 import {
   Restaurant,
@@ -104,7 +105,7 @@ export const MealTracker: React.FC = () => {
   const [toleranceDialogOpen, setToleranceDialogOpen] = useState(false);
   const [selectedFoodForTolerance, setSelectedFoodForTolerance] =
     useState<any>(null);
-  const [tolerated, setTolerated] = useState(true);
+  const [tolerated, setTolerated] = useState(true); // Default: Rahatsız Etmiyor
   const [toleranceSymptoms, setToleranceSymptoms] = useState<string[]>([]);
   const [toleranceSeverity, setToleranceSeverity] = useState(3);
   const [toleranceNotes, setToleranceNotes] = useState("");
@@ -237,7 +238,9 @@ export const MealTracker: React.FC = () => {
   };
 
   const handleDeleteTolerance = (toleranceId: string) => {
-    if (window.confirm("Bu tolerans kaydını silmek istediğinizden emin misiniz?")) {
+    if (
+      window.confirm("Bu tolerans kaydını silmek istediğinizden emin misiniz?")
+    ) {
       // removeMealTolerance fonksiyonunu store'dan alalım
       const { removeMealTolerance } = useHealthStore.getState();
       removeMealTolerance(toleranceId);
@@ -866,18 +869,33 @@ export const MealTracker: React.FC = () => {
                             mb: 2,
                           }}
                         >
-                          <Typography variant="h6" sx={{ fontWeight: 600, flex: 1 }}>
+                          <Typography
+                            variant="h6"
+                            sx={{ fontWeight: 600, flex: 1 }}
+                          >
                             {tolerance.foodName}
                           </Typography>
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 1,
+                            }}
+                          >
                             {tolerance.tolerated ? (
-                              <ThumbUp sx={{ color: "#22c55e" }} />
+                              <Tooltip title="Rahatsız Etmiyor">
+                                <ThumbUp sx={{ color: "#22c55e" }} />
+                              </Tooltip>
                             ) : (
-                              <ThumbDown sx={{ color: "#ef4444" }} />
+                              <Tooltip title="Rahatsız Ediyor">
+                                <ThumbDown sx={{ color: "#ef4444" }} />
+                              </Tooltip>
                             )}
                             <IconButton
                               size="small"
-                              onClick={() => handleDeleteTolerance(tolerance.id)}
+                              onClick={() =>
+                                handleDeleteTolerance(tolerance.id)
+                              }
                               sx={{
                                 color: "#ef4444",
                                 "&:hover": {
@@ -940,7 +958,7 @@ export const MealTracker: React.FC = () => {
       >
         <DialogTitle>
           <Typography variant="h5" sx={{ fontWeight: 600, color: "#667eea" }}>
-            Besin Toleransı
+            Besin Rahatsızlık Durumu
           </Typography>
         </DialogTitle>
         <DialogContent>
@@ -957,7 +975,7 @@ export const MealTracker: React.FC = () => {
                     onChange={(e) => setTolerated(e.target.checked)}
                   />
                 }
-                label={tolerated ? "Toleranslı" : "Toleranssız"}
+                label={tolerated ? "Rahatsız Etmiyor" : "Rahatsız Ediyor"}
               />
 
               {!tolerated && (
