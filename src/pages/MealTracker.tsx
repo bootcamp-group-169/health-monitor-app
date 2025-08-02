@@ -151,7 +151,6 @@ export const MealTracker: React.FC = () => {
     const foodCalories: { [key: string]: number } = {
       tavuk: 165,
       "tavuk göğsü": 165,
-      "tavuk göğsü": 165,
       somon: 208,
       balık: 200,
       et: 250,
