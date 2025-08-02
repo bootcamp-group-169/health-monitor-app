@@ -1,415 +1,598 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   Box,
   Typography,
   Grid,
-  Card,
-  CardContent,
   TextField,
   Button,
+  Card,
+  CardContent,
+  Chip,
+  Slider,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
-  Slider,
-  Chip,
-  Calendar,
+  Tabs,
+  Tab,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  CircularProgress,
   Alert,
-  Fade,
-} from '@mui/material';
+  Divider,
+} from "@mui/material";
 import {
-  Add,
   LocalHospital,
   TrendingUp,
-  CalendarToday,
   Psychology,
-} from '@mui/icons-material';
-import { useForm, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { GlassCard } from '../components/GlassCard';
-import { useHealthStore } from '../store/healthStore';
-import { format, startOfMonth, endOfMonth } from 'date-fns';
-
-const symptomSchema = z.object({
-  type: z.string().min(1, 'Please select a symptom type'),
-  severity: z.number().min(1).max(5),
-  notes: z.string().optional(),
-  date: z.date(),
-});
-
-type SymptomForm = z.infer<typeof symptomSchema>;
+  Warning,
+  CheckCircle,
+  Info,
+  CalendarToday,
+  Analytics,
+} from "@mui/icons-material";
+import { GlassCard } from "../components/GlassCard";
+import { useHealthStore } from "../store/healthStore";
+import { format } from "date-fns";
+import { tr } from "date-fns/locale";
+import {
+  analyzeSymptoms,
+  getHealthInsights,
+  UserHealthProfile,
+} from "../services/aiService";
 
 const symptomTypes = [
-  'bloating',
-  'stomach_pain',
-  'nausea',
-  'constipation',
-  'diarrhea',
-  'heartburn',
-  'gas',
-  'cramping',
+  "bloating",
+  "cramps",
+  "diarrhea",
+  "constipation",
+  "nausea",
+  "gas",
+  "pain",
+  "discomfort",
+  "heartburn",
+  "loss_of_appetite",
 ];
 
+const symptomTypeLabels: { [key: string]: string } = {
+  bloating: "Şişkinlik",
+  cramps: "Kramp",
+  diarrhea: "İshal",
+  constipation: "Kabızlık",
+  nausea: "Mide Bulantısı",
+  gas: "Gaz",
+  pain: "Ağrı",
+  discomfort: "Rahatsızlık",
+  heartburn: "Mide Yanması",
+  loss_of_appetite: "İştahsızlık",
+};
+
 export const IntestinalTracker: React.FC = () => {
-  const [viewMode, setViewMode] = useState<'form' | 'calendar' | 'insights'>('form');
-  const { symptoms, addSymptom } = useHealthStore();
+  const {
+    userProfile,
+    symptoms,
+    addSymptom,
+    removeSymptom,
+    addSymptomAnalysis,
+  } = useHealthStore();
+  const [activeTab, setActiveTab] = useState(0);
+  const [selectedSymptomType, setSelectedSymptomType] = useState("");
+  const [severity, setSeverity] = useState(3);
+  const [notes, setNotes] = useState("");
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisDialogOpen, setAnalysisDialogOpen] = useState(false);
+  const [currentAnalysis, setCurrentAnalysis] = useState<any>(null);
+  const [insights, setInsights] = useState<string[]>([]);
+  const [isLoadingInsights, setIsLoadingInsights] = useState(false);
 
-  const form = useForm<SymptomForm>({
-    resolver: zodResolver(symptomSchema),
-    defaultValues: {
-      type: '',
-      severity: 3,
-      notes: '',
-      date: new Date(),
-    },
-  });
+  const recentSymptoms = symptoms.slice(-5);
 
-  const handleSubmit = (data: SymptomForm) => {
-    addSymptom(data);
-    form.reset({
-      type: '',
-      severity: 3,
-      notes: '',
+  const handleAddSymptom = () => {
+    if (!selectedSymptomType) return;
+
+    addSymptom({
+      type: selectedSymptomType,
+      severity,
       date: new Date(),
+      notes: notes || "",
     });
+
+    // Reset form
+    setSelectedSymptomType("");
+    setSeverity(3);
+    setNotes("");
   };
 
-  const currentMonth = new Date();
-  const monthSymptoms = symptoms.filter(
-    symptom => 
-      symptom.date >= startOfMonth(currentMonth) && 
-      symptom.date <= endOfMonth(currentMonth)
-  );
+  const handleAnalyzeSymptoms = async () => {
+    if (symptoms.length === 0) {
+      alert("Analiz için en az bir semptom kaydı gerekli.");
+      return;
+    }
 
-  const severityColors = {
-    1: '#22c55e',
-    2: '#84cc16',
-    3: '#eab308',
-    4: '#f97316',
-    5: '#ef4444',
+    if (!userProfile.disease || !userProfile.age) {
+      alert("Lütfen önce sağlık profilinizi tamamlayın.");
+      return;
+    }
+
+    setIsAnalyzing(true);
+
+    try {
+      const userHealthProfile: UserHealthProfile = {
+        disease: userProfile.disease,
+        age: userProfile.age,
+        weight: userProfile.weight || 70,
+        height: userProfile.height || 170,
+        symptoms: symptoms.map((s) => s.type),
+        dietaryRestrictions: userProfile.dietaryRestrictions || [],
+        activityLevel: userProfile.activityLevel || "Hafif Aktif",
+      };
+
+      const analysis = await analyzeSymptoms(
+        symptoms.map((s) => s.type),
+        userHealthProfile
+      );
+      setCurrentAnalysis(analysis);
+      setAnalysisDialogOpen(true);
+
+      // Save analysis to store
+      addSymptomAnalysis({
+        symptoms: symptoms.map((s) => s.type),
+        severity: analysis.severity,
+        possibleCauses: analysis.possibleCauses,
+        recommendations: analysis.recommendations,
+        relatedFoods: analysis.relatedFoods,
+        warningSigns: analysis.warningSigns,
+      });
+    } catch (error) {
+      console.error("Symptom analysis error:", error);
+      alert("Semptom analizi yapılırken bir hata oluştu.");
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
-  const getInsights = () => {
-    if (symptoms.length === 0) return [];
+  const handleGetInsights = async () => {
+    if (!userProfile.disease || !userProfile.age) {
+      alert("Lütfen önce sağlık profilinizi tamamlayın.");
+      return;
+    }
 
-    const typeCount = symptoms.reduce((acc, symptom) => {
-      acc[symptom.type] = (acc[symptom.type] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
+    setIsLoadingInsights(true);
 
-    const mostCommon = Object.entries(typeCount)
-      .sort(([, a], [, b]) => b - a)[0];
+    try {
+      const userHealthProfile: UserHealthProfile = {
+        disease: userProfile.disease,
+        age: userProfile.age,
+        weight: userProfile.weight || 70,
+        height: userProfile.height || 170,
+        symptoms: symptoms.map((s) => s.type),
+        dietaryRestrictions: userProfile.dietaryRestrictions || [],
+        activityLevel: userProfile.activityLevel || "Hafif Aktif",
+      };
 
-    const averageSeverity = symptoms.reduce((sum, s) => sum + s.severity, 0) / symptoms.length;
+      const healthInsights = await getHealthInsights(
+        userHealthProfile,
+        [],
+        symptoms
+      );
+      setInsights(healthInsights);
+    } catch (error) {
+      console.error("Health insights error:", error);
+      setInsights(["Tavsiye alınamadı. Lütfen daha sonra tekrar deneyin."]);
+    } finally {
+      setIsLoadingInsights(false);
+    }
+  };
 
-    return [
-      `Most common symptom: ${mostCommon[0].replace('_', ' ')} (${mostCommon[1]} times)`,
-      `Average severity: ${averageSeverity.toFixed(1)}/5`,
-      `Total symptoms tracked: ${symptoms.length}`,
-    ];
+  const getSeverityColor = (severity: number) => {
+    if (severity <= 2) return "#22c55e";
+    if (severity <= 3) return "#f59e0b";
+    return "#ef4444";
+  };
+
+  const getSeverityText = (severity: number) => {
+    if (severity <= 2) return "Hafif";
+    if (severity <= 3) return "Orta";
+    return "Şiddetli";
   };
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" sx={{ fontWeight: 700, mb: 4 }}>
-        Symptom Tracker
-      </Typography>
-
-      {/* Navigation Tabs */}
-      <Box sx={{ mb: 4 }}>
-        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-          {[
-            { id: 'form', label: 'Log Symptom', icon: <Add /> },
-            { id: 'calendar', label: 'Calendar View', icon: <CalendarToday /> },
-            { id: 'insights', label: 'AI Insights', icon: <Psychology /> },
-          ].map((tab) => (
-            <Button
-              key={tab.id}
-              variant={viewMode === tab.id ? 'contained' : 'outlined'}
-              startIcon={tab.icon}
-              onClick={() => setViewMode(tab.id as any)}
-              sx={{
-                ...(viewMode === tab.id && {
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                }),
-              }}
-            >
-              {tab.label}
-            </Button>
-          ))}
-        </Box>
-      </Box>
-
+    <Box sx={{ p: 2, width: "100%" }}>
       <Grid container spacing={3}>
-        {viewMode === 'form' && (
-          <>
-            {/* Symptom Form */}
-            <Grid item xs={12} md={6}>
-              <GlassCard>
-                <CardContent sx={{ p: 3 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                    <LocalHospital sx={{ color: '#f59e0b', mr: 2 }} />
-                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                      Log New Symptom
-                    </Typography>
-                  </Box>
+        {/* Symptom Form */}
+        <Grid item xs={12} md={6}>
+          <GlassCard>
+            <CardContent sx={{ p: 3 }}>
+              <Box sx={{ display: "flex", alignItems: "center", mb: 3 }}>
+                <LocalHospital sx={{ color: "#f59e0b", mr: 2, fontSize: 28 }} />
+                <Typography variant="h5" sx={{ fontWeight: 600 }}>
+                  Semptom Ekle
+                </Typography>
+              </Box>
 
-                  <Box
-                    component="form"
-                    onSubmit={form.handleSubmit(handleSubmit)}
-                    sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                <FormControl fullWidth>
+                  <InputLabel>Semptom Türü</InputLabel>
+                  <Select
+                    value={selectedSymptomType}
+                    onChange={(e) => setSelectedSymptomType(e.target.value)}
+                    label="Semptom Türü"
+                    sx={{ borderRadius: 2 }}
                   >
-                    <Controller
-                      name="type"
-                      control={form.control}
-                      render={({ field, fieldState }) => (
-                        <FormControl fullWidth error={!!fieldState.error}>
-                          <InputLabel>Symptom Type</InputLabel>
-                          <Select {...field} label="Symptom Type">
-                            {symptomTypes.map((type) => (
-                              <MenuItem key={type} value={type}>
-                                {type.replace('_', ' ').toUpperCase()}
-                              </MenuItem>
-                            ))}
-                          </Select>
-                        </FormControl>
-                      )}
-                    />
+                    {symptomTypes.map((type) => (
+                      <MenuItem key={type} value={type}>
+                        {symptomTypeLabels[type]}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
 
-                    <Controller
-                      name="severity"
-                      control={form.control}
-                      render={({ field }) => (
-                        <Box>
-                          <Typography variant="body1" sx={{ mb: 2 }}>
-                            Severity: {field.value}/5
+                <Box>
+                  <Typography variant="body2" sx={{ mb: 2 }}>
+                    Şiddet Seviyesi: {getSeverityText(severity)}
+                  </Typography>
+                  <Slider
+                    value={severity}
+                    onChange={(e, value) => setSeverity(value as number)}
+                    min={1}
+                    max={5}
+                    marks
+                    valueLabelDisplay="auto"
+                    sx={{
+                      color: getSeverityColor(severity),
+                      "& .MuiSlider-mark": {
+                        backgroundColor: "#bfdbfe",
+                      },
+                    }}
+                  />
+                </Box>
+
+                <TextField
+                  label="Notlar (İsteğe bağlı)"
+                  multiline
+                  rows={3}
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  sx={{
+                    "& .MuiOutlinedInput-root": {
+                      borderRadius: 2,
+                    },
+                  }}
+                />
+
+                <Button
+                  onClick={handleAddSymptom}
+                  disabled={!selectedSymptomType}
+                  variant="contained"
+                  sx={{
+                    background:
+                      "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
+                    borderRadius: 2,
+                    py: 1.5,
+                  }}
+                >
+                  Semptom Ekle
+                </Button>
+              </Box>
+            </CardContent>
+          </GlassCard>
+        </Grid>
+
+        {/* AI Analysis */}
+        <Grid item xs={12} md={6}>
+          <GlassCard>
+            <CardContent sx={{ p: 3 }}>
+              <Box sx={{ display: "flex", alignItems: "center", mb: 3 }}>
+                <Psychology sx={{ color: "#667eea", mr: 2, fontSize: 28 }} />
+                <Typography variant="h5" sx={{ fontWeight: 600 }}>
+                  AI Analizi
+                </Typography>
+              </Box>
+
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                Semptomlarınızı analiz ederek kişiselleştirilmiş öneriler alın.
+              </Typography>
+
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <Button
+                  onClick={handleAnalyzeSymptoms}
+                  disabled={isAnalyzing || symptoms.length === 0}
+                  variant="outlined"
+                  startIcon={
+                    isAnalyzing ? <CircularProgress size={20} /> : <Analytics />
+                  }
+                  sx={{
+                    borderRadius: 2,
+                    py: 1.5,
+                    borderColor: "#667eea",
+                    color: "#667eea",
+                    "&:hover": {
+                      borderColor: "#5b21b6",
+                      bgcolor: "rgba(102, 126, 234, 0.1)",
+                    },
+                  }}
+                >
+                  {isAnalyzing ? "Analiz Ediliyor..." : "Semptomları Analiz Et"}
+                </Button>
+
+                <Button
+                  onClick={handleGetInsights}
+                  disabled={isLoadingInsights}
+                  variant="outlined"
+                  startIcon={
+                    isLoadingInsights ? (
+                      <CircularProgress size={20} />
+                    ) : (
+                      <Info />
+                    )
+                  }
+                  sx={{
+                    borderRadius: 2,
+                    py: 1.5,
+                    borderColor: "#22c55e",
+                    color: "#22c55e",
+                    "&:hover": {
+                      borderColor: "#16a34a",
+                      bgcolor: "rgba(34, 197, 94, 0.1)",
+                    },
+                  }}
+                >
+                  {isLoadingInsights
+                    ? "Yükleniyor..."
+                    : "Sağlık Tavsiyeleri Al"}
+                </Button>
+              </Box>
+
+              {insights.length > 0 && (
+                <Box sx={{ mt: 3 }}>
+                  <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+                    AI Tavsiyeleri
+                  </Typography>
+                  <List>
+                    {insights.map((insight, index) => (
+                      <ListItem key={index} sx={{ py: 0.5 }}>
+                        <ListItemIcon sx={{ minWidth: 32 }}>
+                          <CheckCircle
+                            sx={{ color: "#22c55e", fontSize: 20 }}
+                          />
+                        </ListItemIcon>
+                        <ListItemText primary={insight} />
+                      </ListItem>
+                    ))}
+                  </List>
+                </Box>
+              )}
+            </CardContent>
+          </GlassCard>
+        </Grid>
+      </Grid>
+
+      {/* Recent Symptoms and Calendar View */}
+      <GlassCard sx={{ mt: 3 }}>
+        <CardContent sx={{ p: 3 }}>
+          <Box sx={{ display: "flex", alignItems: "center", mb: 3 }}>
+            <CalendarToday sx={{ color: "#f59e0b", mr: 2, fontSize: 28 }} />
+            <Typography variant="h5" sx={{ fontWeight: 600 }}>
+              Semptom Geçmişi
+            </Typography>
+          </Box>
+
+          <Tabs
+            value={activeTab}
+            onChange={(e, newValue) => setActiveTab(newValue)}
+            sx={{ mb: 3 }}
+          >
+            <Tab label="Son Semptomlar" />
+            <Tab label="Takvim Görünümü" />
+          </Tabs>
+
+          {activeTab === 0 && (
+            <Grid container spacing={2}>
+              {recentSymptoms.length === 0 ? (
+                <Grid item xs={12}>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ textAlign: "center", py: 4 }}
+                  >
+                    Henüz semptom kaydedilmedi
+                  </Typography>
+                </Grid>
+              ) : (
+                recentSymptoms.map((symptom) => (
+                  <Grid item xs={12} sm={6} md={4} key={symptom.id}>
+                    <Card
+                      sx={{
+                        borderRadius: 2,
+                        bgcolor: "rgba(255, 255, 255, 0.1)",
+                      }}
+                    >
+                      <CardContent sx={{ p: 2 }}>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "flex-start",
+                            mb: 2,
+                          }}
+                        >
+                          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                            {symptomTypeLabels[symptom.type]}
                           </Typography>
-                          <Slider
-                            {...field}
-                            min={1}
-                            max={5}
-                            step={1}
-                            marks
-                            valueLabelDisplay="auto"
+                          <Chip
+                            label={`Seviye ${symptom.severity}`}
+                            size="small"
                             sx={{
-                              color: severityColors[field.value as keyof typeof severityColors],
+                              background: getSeverityColor(symptom.severity),
+                              color: "white",
+                              fontSize: "0.8rem",
                             }}
                           />
                         </Box>
-                      )}
-                    />
-
-                    <Controller
-                      name="date"
-                      control={form.control}
-                      render={({ field }) => (
-                        <TextField
-                          {...field}
-                          type="datetime-local"
-                          label="Date & Time"
-                          fullWidth
-                          value={format(field.value, "yyyy-MM-dd'T'HH:mm")}
-                          onChange={(e) => field.onChange(new Date(e.target.value))}
-                        />
-                      )}
-                    />
-
-                    <TextField
-                      {...form.register('notes')}
-                      label="Additional Notes"
-                      multiline
-                      rows={3}
-                      fullWidth
-                      placeholder="Any additional details about this symptom..."
-                    />
-
-                    <Button
-                      type="submit"
-                      variant="contained"
-                      size="large"
-                      startIcon={<Add />}
-                      sx={{
-                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                        py: 1.5,
-                      }}
-                    >
-                      Log Symptom
-                    </Button>
-                  </Box>
-                </CardContent>
-              </GlassCard>
-            </Grid>
-
-            {/* Recent Symptoms */}
-            <Grid item xs={12} md={6}>
-              <GlassCard>
-                <CardContent sx={{ p: 3 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>
-                    Recent Symptoms
-                  </Typography>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    {symptoms.slice(-5).reverse().map((symptom) => (
-                      <Fade in key={symptom.id} timeout={500}>
-                        <Box
-                          sx={{
-                            p: 2,
-                            borderRadius: 2,
-                            background: 'rgba(255, 255, 255, 0.1)',
-                            border: '1px solid rgba(255, 255, 255, 0.1)',
-                          }}
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{ mb: 1 }}
                         >
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                              {symptom.type.replace('_', ' ').toUpperCase()}
-                            </Typography>
-                            <Chip
-                              label={`${symptom.severity}/5`}
-                              size="small"
-                              sx={{
-                                background: severityColors[symptom.severity as keyof typeof severityColors],
-                                color: 'white',
-                              }}
-                            />
-                          </Box>
-                          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                            {format(symptom.date, 'MMM dd, yyyy HH:mm')}
+                          {format(symptom.date, "dd MMM yyyy", { locale: tr })}
+                        </Typography>
+                        {symptom.notes && (
+                          <Typography
+                            variant="body2"
+                            sx={{ fontStyle: "italic" }}
+                          >
+                            "{symptom.notes}"
                           </Typography>
-                          {symptom.notes && (
-                            <Typography variant="body2">
-                              {symptom.notes}
-                            </Typography>
-                          )}
-                        </Box>
-                      </Fade>
-                    ))}
-                    {symptoms.length === 0 && (
-                      <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-                        No symptoms logged yet
-                      </Typography>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                ))
+              )}
+            </Grid>
+          )}
+
+          {activeTab === 1 && (
+            <Box>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ textAlign: "center", py: 4 }}
+              >
+                Takvim görünümü yakında eklenecek...
+              </Typography>
+            </Box>
+          )}
+        </CardContent>
+      </GlassCard>
+
+      {/* Analysis Dialog */}
+      <Dialog
+        open={analysisDialogOpen}
+        onClose={() => setAnalysisDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          style: {
+            background: "rgba(255, 255, 255, 0.95)",
+            backdropFilter: "blur(20px)",
+            borderRadius: 16,
+          },
+        }}
+      >
+        <DialogTitle>
+          <Box sx={{ display: "flex", alignItems: "center" }}>
+            <Analytics sx={{ color: "#667eea", mr: 2 }} />
+            <Typography variant="h5" sx={{ fontWeight: 600, color: "#667eea" }}>
+              Semptom Analizi
+            </Typography>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          {currentAnalysis && (
+            <Box>
+              <Alert severity="info" sx={{ mb: 3, borderRadius: 2 }}>
+                <Typography variant="body2">
+                  <strong>Şiddet Seviyesi:</strong> {currentAnalysis.severity}/5
+                </Typography>
+              </Alert>
+
+              <Grid container spacing={3}>
+                <Grid item xs={12} md={6}>
+                  <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+                    Olası Nedenler
+                  </Typography>
+                  <List>
+                    {currentAnalysis.possibleCauses.map(
+                      (cause: string, index: number) => (
+                        <ListItem key={index} sx={{ py: 0.5 }}>
+                          <ListItemIcon sx={{ minWidth: 32 }}>
+                            <Warning sx={{ color: "#f59e0b", fontSize: 20 }} />
+                          </ListItemIcon>
+                          <ListItemText primary={cause} />
+                        </ListItem>
+                      )
+                    )}
+                  </List>
+                </Grid>
+
+                <Grid item xs={12} md={6}>
+                  <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+                    Öneriler
+                  </Typography>
+                  <List>
+                    {currentAnalysis.recommendations.map(
+                      (rec: string, index: number) => (
+                        <ListItem key={index} sx={{ py: 0.5 }}>
+                          <ListItemIcon sx={{ minWidth: 32 }}>
+                            <CheckCircle
+                              sx={{ color: "#22c55e", fontSize: 20 }}
+                            />
+                          </ListItemIcon>
+                          <ListItemText primary={rec} />
+                        </ListItem>
+                      )
+                    )}
+                  </List>
+                </Grid>
+
+                <Grid item xs={12}>
+                  <Divider sx={{ my: 2 }} />
+                  <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+                    Kaçınılması Gereken Besinler
+                  </Typography>
+                  <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+                    {currentAnalysis.relatedFoods.map(
+                      (food: string, index: number) => (
+                        <Chip
+                          key={index}
+                          label={food}
+                          color="error"
+                          variant="outlined"
+                          sx={{ borderRadius: 1 }}
+                        />
+                      )
                     )}
                   </Box>
-                </CardContent>
-              </GlassCard>
-            </Grid>
-          </>
-        )}
-
-        {viewMode === 'calendar' && (
-          <Grid item xs={12}>
-            <GlassCard>
-              <CardContent sx={{ p: 3 }}>
-                <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>
-                  Symptom Calendar - {format(currentMonth, 'MMMM yyyy')}
-                </Typography>
-                <Grid container spacing={2}>
-                  {monthSymptoms.length > 0 ? (
-                    monthSymptoms.map((symptom) => (
-                      <Grid item xs={12} sm={6} md={4} key={symptom.id}>
-                        <Box
-                          sx={{
-                            p: 2,
-                            borderRadius: 2,
-                            background: `${severityColors[symptom.severity as keyof typeof severityColors]}20`,
-                            border: `1px solid ${severityColors[symptom.severity as keyof typeof severityColors]}40`,
-                          }}
-                        >
-                          <Box sx={{ display: 'flex', justifyContent: 'between', mb: 1 }}>
-                            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                              {format(symptom.date, 'dd MMM')}
-                            </Typography>
-                            <Chip
-                              label={symptom.severity}
-                              size="small"
-                              sx={{
-                                background: severityColors[symptom.severity as keyof typeof severityColors],
-                                color: 'white',
-                                ml: 'auto',
-                              }}
-                            />
-                          </Box>
-                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                            {symptom.type.replace('_', ' ').toUpperCase()}
-                          </Typography>
-                          {symptom.notes && (
-                            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                              {symptom.notes}
-                            </Typography>
-                          )}
-                        </Box>
-                      </Grid>
-                    ))
-                  ) : (
-                    <Grid item xs={12}>
-                      <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-                        No symptoms logged this month
-                      </Typography>
-                    </Grid>
-                  )}
                 </Grid>
-              </CardContent>
-            </GlassCard>
-          </Grid>
-        )}
 
-        {viewMode === 'insights' && (
-          <Grid item xs={12}>
-            <GlassCard>
-              <CardContent sx={{ p: 3 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                  <Psychology sx={{ color: '#667eea', mr: 2 }} />
-                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                    AI Health Insights
-                  </Typography>
-                </Box>
-                
-                {symptoms.length > 0 ? (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                    <Alert severity="info" sx={{ borderRadius: 2 }}>
-                      <Typography variant="h6" sx={{ mb: 1 }}>
-                        Health Pattern Analysis
-                      </Typography>
-                      {getInsights().map((insight, index) => (
-                        <Typography key={index} variant="body2" sx={{ mb: 0.5 }}>
-                          • {insight}
-                        </Typography>
-                      ))}
-                    </Alert>
-
+                {currentAnalysis.warningSigns.length > 0 && (
+                  <Grid item xs={12}>
                     <Alert severity="warning" sx={{ borderRadius: 2 }}>
                       <Typography variant="h6" sx={{ mb: 1 }}>
-                        Recommendations
+                        Dikkat Edilmesi Gereken Belirtiler
                       </Typography>
-                      <Typography variant="body2" sx={{ mb: 0.5 }}>
-                        • Consider keeping a food diary to identify potential triggers
-                      </Typography>
-                      <Typography variant="body2" sx={{ mb: 0.5 }}>
-                        • Stay hydrated and maintain regular meal times
-                      </Typography>
-                      <Typography variant="body2">
-                        • Consult with a healthcare provider if symptoms persist
-                      </Typography>
+                      <List>
+                        {currentAnalysis.warningSigns.map(
+                          (sign: string, index: number) => (
+                            <ListItem key={index} sx={{ py: 0.5 }}>
+                              <ListItemIcon sx={{ minWidth: 32 }}>
+                                <Warning
+                                  sx={{ color: "#ef4444", fontSize: 20 }}
+                                />
+                              </ListItemIcon>
+                              <ListItemText primary={sign} />
+                            </ListItem>
+                          )
+                        )}
+                      </List>
                     </Alert>
-
-                    <Alert severity="success" sx={{ borderRadius: 2 }}>
-                      <Typography variant="h6" sx={{ mb: 1 }}>
-                        Progress Tracking
-                      </Typography>
-                      <Typography variant="body2">
-                        Great job on consistently tracking your symptoms! This data will help you and your healthcare provider identify patterns and develop an effective treatment plan.
-                      </Typography>
-                    </Alert>
-                  </Box>
-                ) : (
-                  <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-                    Start logging symptoms to see AI-powered insights and recommendations
-                  </Typography>
+                  </Grid>
                 )}
-              </CardContent>
-            </GlassCard>
-          </Grid>
-        )}
-      </Grid>
+              </Grid>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAnalysisDialogOpen(false)}>Kapat</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

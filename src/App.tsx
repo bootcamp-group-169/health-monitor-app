@@ -1,18 +1,23 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { ThemeProvider, CssBaseline, Box } from '@mui/material';
-import { lightTheme, darkTheme } from './theme/theme';
-import { useThemeStore } from './store/themeStore';
-import { useAuthStore } from './store/authStore';
-import { useHealthStore } from './store/healthStore';
-import { AuthPage } from './pages/AuthPage';
-import { OnboardingPage } from './pages/OnboardingPage';
-import { Dashboard } from './pages/Dashboard';
-import { AIAssistant } from './pages/AIAssistant';
-import { IntestinalTracker } from './pages/IntestinalTracker';
-import { MealTracker } from './pages/MealTracker';
-import { Navigation } from './components/Navigation';
-import { AnimatedBackground } from './components/AnimatedBackground';
+import React from "react";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
+import { ThemeProvider, CssBaseline, Box } from "@mui/material";
+import { lightTheme, darkTheme } from "./theme/theme";
+import { useThemeStore } from "./store/themeStore";
+import { useAuthStore } from "./store/authStore";
+import { useHealthStore } from "./store/healthStore";
+import { AuthPage } from "./pages/AuthPage";
+import { OnboardingPage } from "./pages/OnboardingPage";
+import { Dashboard } from "./pages/Dashboard";
+import { AIAssistant } from "./pages/AIAssistant";
+import { IntestinalTracker } from "./pages/IntestinalTracker";
+import { MealTracker } from "./pages/MealTracker";
+import { Navigation } from "./components/Navigation";
+import { AnimatedBackground } from "./components/AnimatedBackground";
 
 function App() {
   const { isDark } = useThemeStore();
@@ -22,18 +27,17 @@ function App() {
   const theme = isDark ? darkTheme : lightTheme;
 
   const AuthenticatedLayout = () => (
-    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+    <Box sx={{ display: "flex", minHeight: "100vh" }}>
       <AnimatedBackground />
       <Navigation />
       <Box
         component="main"
         sx={{
           flexGrow: 1,
-          ml: { xs: 0, md: '280px' },
-          minHeight: '100vh',
-          position: 'relative',
+          minHeight: "100vh",
+          position: "relative",
           zIndex: 1,
-          width: { xs: '100%', md: 'calc(100% - 280px)' },
+          width: { xs: "100%", md: "calc(100% - 240px)" },
         }}
       >
         <Routes>
@@ -52,14 +56,18 @@ function App() {
       <CssBaseline />
       <Router>
         <Routes>
-          <Route 
-            path="/auth" 
+          <Route
+            path="/auth"
             element={
-              isAuthenticated ? <Navigate to="/dashboard" replace /> : <AuthPage />
-            } 
+              isAuthenticated ? (
+                <Navigate to="/dashboard" replace />
+              ) : (
+                <AuthPage />
+              )
+            }
           />
-          <Route 
-            path="/onboarding" 
+          <Route
+            path="/onboarding"
             element={
               isAuthenticated && needsOnboarding ? (
                 <OnboardingPage />
@@ -68,10 +76,10 @@ function App() {
               ) : (
                 <Navigate to="/auth" replace />
               )
-            } 
+            }
           />
-          <Route 
-            path="/*" 
+          <Route
+            path="/*"
             element={
               !isAuthenticated ? (
                 <Navigate to="/auth" replace />
@@ -80,7 +88,7 @@ function App() {
               ) : (
                 <AuthenticatedLayout />
               )
-            } 
+            }
           />
         </Routes>
       </Router>

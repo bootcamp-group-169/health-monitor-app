@@ -1,130 +1,287 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
-interface Symptom {
+export interface UserProfile {
+  height?: number;
+  weight?: number;
+  age?: number;
+  disease?: string;
+  dietaryRestrictions?: string[];
+  activityLevel?: string;
+}
+
+export interface Symptom {
   id: string;
-  date: Date;
   type: string;
   severity: number;
+  date: Date;
   notes: string;
 }
 
-interface Meal {
+export interface Meal {
   id: string;
-  date: Date;
   name: string;
   calories: number;
-  protein: number;
-  carbs: number;
-  fats: number;
-  image?: string;
+  date: Date;
+  mealType: "breakfast" | "lunch" | "dinner" | "snack";
+  foods: string[];
+  amount: string;
 }
 
-interface ChatMessage {
+export interface HealthPlan {
   id: string;
-  type: 'user' | 'ai';
-  content: string;
-  timestamp: Date;
-}
-
-interface HealthPlan {
-  id: string;
-  type: 'diet' | 'fitness';
+  type: "diet" | "fitness";
   title: string;
   description: string;
-  items: string[];
   duration: string;
+  created: Date;
 }
 
-interface HealthState {
-  symptoms: Symptom[];
-  meals: Meal[];
-  chatMessages: ChatMessage[];
-  healthPlans: HealthPlan[];
-  userProfile: {
-    height?: number;
-    weight?: number;
-    age?: number;
-    hasIntestinalDisease?: boolean;
-    intestinalDiseaseType?: string;
-    isProfileComplete: boolean;
+export interface NutritionPlan {
+  id: string;
+  title: string;
+  description: string;
+  duration: string;
+  meals: {
+    meal: string;
+    foods: string[];
+    calories: number;
+    notes: string;
+  }[];
+  recommendations: string[];
+  created: Date;
+}
+
+export interface FitnessPlan {
+  id: string;
+  title: string;
+  description: string;
+  duration: string;
+  exercises: {
+    name: string;
+    sets: number;
+    reps: number;
+    duration: string;
+    notes: string;
+  }[];
+  recommendations: string[];
+  created: Date;
+}
+
+export interface MealTolerance {
+  id: string;
+  foodName: string;
+  tolerated: boolean;
+  symptoms: string[];
+  severity: number;
+  notes: string;
+  date: Date;
+}
+
+export interface SymptomAnalysis {
+  id: string;
+  symptoms: string[];
+  severity: number;
+  possibleCauses: string[];
+  recommendations: string[];
+  relatedFoods: string[];
+  warningSigns: string[];
+  date: Date;
+}
+
+export interface FoodAnalysis {
+  id: string;
+  foodName: string;
+  amount: string;
+  calories: number;
+  nutrients: {
+    protein: number;
+    carbs: number;
+    fat: number;
+    fiber: number;
   };
-  addSymptom: (symptom: Omit<Symptom, 'id'>) => void;
-  addMeal: (meal: Omit<Meal, 'id'>) => void;
-  addChatMessage: (message: Omit<ChatMessage, 'id'>) => void;
-  generateHealthPlan: (type: 'diet' | 'fitness', preferences: string) => Promise<void>;
-  updateUserProfile: (profile: Partial<HealthState['userProfile']>) => void;
+  suitability: "good" | "moderate" | "avoid";
+  recommendations: string[];
+  alternatives: string[];
+  date: Date;
+}
+
+interface HealthStore {
+  // User Profile
+  userProfile: UserProfile;
+  setUserProfile: (profile: Partial<UserProfile>) => void;
+
+  // Symptoms
+  symptoms: Symptom[];
+  addSymptom: (symptom: Omit<Symptom, "id">) => void;
+  removeSymptom: (id: string) => void;
+
+  // Meals
+  meals: Meal[];
+  addMeal: (meal: Omit<Meal, "id">) => void;
+  removeMeal: (id: string) => void;
+
+  // Health Plans
+  healthPlans: HealthPlan[];
+  addHealthPlan: (plan: Omit<HealthPlan, "id">) => void;
+  removeHealthPlan: (id: string) => void;
+
+  // AI Generated Plans
+  nutritionPlans: NutritionPlan[];
+  fitnessPlans: FitnessPlan[];
+  addNutritionPlan: (plan: Omit<NutritionPlan, "id" | "created">) => void;
+  addFitnessPlan: (plan: Omit<FitnessPlan, "id" | "created">) => void;
+  removeNutritionPlan: (id: string) => void;
+  removeFitnessPlan: (id: string) => void;
+
+  // Meal Tolerance Tracking
+  mealTolerances: MealTolerance[];
+  addMealTolerance: (tolerance: Omit<MealTolerance, "id">) => void;
+  removeMealTolerance: (id: string) => void;
+
+  // AI Analysis
+  symptomAnalyses: SymptomAnalysis[];
+  foodAnalyses: FoodAnalysis[];
+  addSymptomAnalysis: (analysis: Omit<SymptomAnalysis, "id" | "date">) => void;
+  addFoodAnalysis: (analysis: Omit<FoodAnalysis, "id" | "date">) => void;
+  removeSymptomAnalysis: (id: string) => void;
+  removeFoodAnalysis: (id: string) => void;
+
+  // Clear all data
   clearAllData: () => void;
 }
 
-export const useHealthStore = create<HealthState>()(
+export const useHealthStore = create<HealthStore>()(
   persist(
     (set, get) => ({
-      symptoms: [],
-      meals: [],
-      chatMessages: [],
-      healthPlans: [],
-      userProfile: {
-        isProfileComplete: false,
-      },
-      addSymptom: (symptom) => {
-        const newSymptom = { ...symptom, id: Date.now().toString() };
-        set((state) => ({ symptoms: [...state.symptoms, newSymptom] }));
-      },
-      addMeal: (meal) => {
-        const newMeal = { ...meal, id: Date.now().toString() };
-        set((state) => ({ meals: [...state.meals, newMeal] }));
-      },
-      addChatMessage: (message) => {
-        const newMessage = { ...message, id: Date.now().toString() };
-        set((state) => ({ chatMessages: [...state.chatMessages, newMessage] }));
-      },
-      generateHealthPlan: async (type, preferences) => {
-        const newPlan: HealthPlan = {
-          id: Date.now().toString(),
-          type,
-          title: type === 'diet' ? '7-Day Nutrition Plan' : '4-Week Fitness Program',
-          description: `Personalized ${type} plan based on your preferences: ${preferences}`,
-          items: type === 'diet' 
-            ? [
-                'High-protein breakfast with eggs and avocado',
-                'Lean protein lunch with quinoa and vegetables',
-                'Healthy snacks: nuts, fruits, and Greek yogurt',
-                'Balanced dinner with fish or chicken',
-                'Stay hydrated with 8+ glasses of water daily'
-              ]
-            : [
-                'Warm-up: 10 minutes of light cardio',
-                'Strength training: 3 sets of compound exercises',
-                'Core workout: planks and crunches',
-                'Cool-down: stretching and flexibility',
-                '30-45 minutes total workout time'
-              ],
-          duration: type === 'diet' ? '7 days' : '4 weeks'
-        };
-        
-        // Simulate AI generation delay
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        set((state) => ({ healthPlans: [...state.healthPlans, newPlan] }));
-      },
-      updateUserProfile: (profile) => {
+      // User Profile
+      userProfile: {},
+      setUserProfile: (profile) =>
         set((state) => ({
-          userProfile: { ...state.userProfile, ...profile }
-        }));
-      },
-      clearAllData: () => {
+          userProfile: { ...state.userProfile, ...profile },
+        })),
+
+      // Symptoms
+      symptoms: [],
+      addSymptom: (symptom) =>
+        set((state) => ({
+          symptoms: [
+            ...state.symptoms,
+            { ...symptom, id: Date.now().toString() },
+          ],
+        })),
+      removeSymptom: (id) =>
+        set((state) => ({
+          symptoms: state.symptoms.filter((s) => s.id !== id),
+        })),
+
+      // Meals
+      meals: [],
+      addMeal: (meal) =>
+        set((state) => ({
+          meals: [...state.meals, { ...meal, id: Date.now().toString() }],
+        })),
+      removeMeal: (id) =>
+        set((state) => ({
+          meals: state.meals.filter((m) => m.id !== id),
+        })),
+
+      // Health Plans
+      healthPlans: [],
+      addHealthPlan: (plan) =>
+        set((state) => ({
+          healthPlans: [
+            ...state.healthPlans,
+            { ...plan, id: Date.now().toString() },
+          ],
+        })),
+      removeHealthPlan: (id) =>
+        set((state) => ({
+          healthPlans: state.healthPlans.filter((p) => p.id !== id),
+        })),
+
+      // AI Generated Plans
+      nutritionPlans: [],
+      fitnessPlans: [],
+      addNutritionPlan: (plan) =>
+        set((state) => ({
+          nutritionPlans: [
+            ...state.nutritionPlans,
+            { ...plan, id: Date.now().toString(), created: new Date() },
+          ],
+        })),
+      addFitnessPlan: (plan) =>
+        set((state) => ({
+          fitnessPlans: [
+            ...state.fitnessPlans,
+            { ...plan, id: Date.now().toString(), created: new Date() },
+          ],
+        })),
+      removeNutritionPlan: (id) =>
+        set((state) => ({
+          nutritionPlans: state.nutritionPlans.filter((p) => p.id !== id),
+        })),
+      removeFitnessPlan: (id) =>
+        set((state) => ({
+          fitnessPlans: state.fitnessPlans.filter((p) => p.id !== id),
+        })),
+
+      // Meal Tolerance Tracking
+      mealTolerances: [],
+      addMealTolerance: (tolerance) =>
+        set((state) => ({
+          mealTolerances: [
+            ...state.mealTolerances,
+            { ...tolerance, id: Date.now().toString() },
+          ],
+        })),
+      removeMealTolerance: (id) =>
+        set((state) => ({
+          mealTolerances: state.mealTolerances.filter((t) => t.id !== id),
+        })),
+
+      // AI Analysis
+      symptomAnalyses: [],
+      foodAnalyses: [],
+      addSymptomAnalysis: (analysis) =>
+        set((state) => ({
+          symptomAnalyses: [
+            ...state.symptomAnalyses,
+            { ...analysis, id: Date.now().toString(), date: new Date() },
+          ],
+        })),
+      addFoodAnalysis: (analysis) =>
+        set((state) => ({
+          foodAnalyses: [
+            ...state.foodAnalyses,
+            { ...analysis, id: Date.now().toString(), date: new Date() },
+          ],
+        })),
+      removeSymptomAnalysis: (id) =>
+        set((state) => ({
+          symptomAnalyses: state.symptomAnalyses.filter((a) => a.id !== id),
+        })),
+      removeFoodAnalysis: (id) =>
+        set((state) => ({
+          foodAnalyses: state.foodAnalyses.filter((a) => a.id !== id),
+        })),
+
+      // Clear all data
+      clearAllData: () =>
         set({
+          userProfile: {},
           symptoms: [],
           meals: [],
-          chatMessages: [],
           healthPlans: [],
-          userProfile: { isProfileComplete: false },
-        });
-      },
+          nutritionPlans: [],
+          fitnessPlans: [],
+          mealTolerances: [],
+          symptomAnalyses: [],
+          foodAnalyses: [],
+        }),
     }),
     {
-      name: 'health-storage',
+      name: "health-storage",
     }
   )
 );

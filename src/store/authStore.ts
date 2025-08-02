@@ -1,5 +1,5 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
 interface User {
   id: string;
@@ -12,10 +12,12 @@ interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   needsOnboarding: boolean;
+  isFirstLogin: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
   completeOnboarding: () => void;
+  completeFirstLogin: () => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -24,41 +26,64 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       isAuthenticated: false,
       needsOnboarding: false,
+      isFirstLogin: false,
       login: async (email: string, password: string) => {
         // Simulate API call
-        console.log('Auth store login called with:', { email, password });
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        console.log("Auth store login called with:", { email, password });
+        await new Promise((resolve) => setTimeout(resolve, 1000));
         const user = {
-          id: '1',
+          id: "1",
           email,
-          name: email.split('@')[0],
-          avatar: `https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&fit=crop`
+          name: email.split("@")[0],
+          avatar: `https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&fit=crop`,
         };
-        console.log('Setting user:', user);
-        set({ user, isAuthenticated: true, needsOnboarding: false });
+        console.log("Setting user:", user);
+        set({
+          user,
+          isAuthenticated: true,
+          needsOnboarding: false,
+          isFirstLogin: true,
+        });
       },
       register: async (name: string, email: string, password: string) => {
         // Simulate API call
-        console.log('Auth store register called with:', { name, email, password });
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        console.log("Auth store register called with:", {
+          name,
+          email,
+          password,
+        });
+        await new Promise((resolve) => setTimeout(resolve, 1000));
         const user = {
-          id: '1',
+          id: "1",
           email,
           name,
-          avatar: `https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&fit=crop`
+          avatar: `https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&fit=crop`,
         };
-        console.log('Setting user:', user);
-        set({ user, isAuthenticated: true, needsOnboarding: true });
+        console.log("Setting user:", user);
+        set({
+          user,
+          isAuthenticated: true,
+          needsOnboarding: false,
+          isFirstLogin: true,
+        });
       },
       logout: () => {
-        set({ user: null, isAuthenticated: false, needsOnboarding: false });
+        set({
+          user: null,
+          isAuthenticated: false,
+          needsOnboarding: false,
+          isFirstLogin: false,
+        });
       },
       completeOnboarding: () => {
         set({ needsOnboarding: false });
       },
+      completeFirstLogin: () => {
+        set({ isFirstLogin: false });
+      },
     }),
     {
-      name: 'auth-storage',
+      name: "auth-storage",
     }
   )
 );

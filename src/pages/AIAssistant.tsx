@@ -1,385 +1,663 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from "react";
 import {
   Box,
   Typography,
+  Grid,
   TextField,
   Button,
-  Paper,
-  Avatar,
-  Grid,
   Card,
   CardContent,
-  CircularProgress,
   Chip,
-  Fade,
-} from '@mui/material';
+  CircularProgress,
+  Tabs,
+  Tab,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  Divider,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  IconButton,
+} from "@mui/material";
 import {
   Send,
-  Psychology,
   Restaurant,
   FitnessCenter,
-  CheckCircle,
-  AutoAwesome,
-} from '@mui/icons-material';
-import { useForm } from 'react-hook-form';
-import { GlassCard } from '../components/GlassCard';
-import { useHealthStore } from '../store/healthStore';
-import { format } from 'date-fns';
+  Psychology,
+  Message,
+  Delete,
+  Edit,
+  Visibility,
+} from "@mui/icons-material";
+import { GlassCard } from "../components/GlassCard";
+import { useHealthStore } from "../store/healthStore";
+import {
+  chatWithAI,
+  generateNutritionPlan,
+  generateFitnessPlan,
+  UserHealthProfile,
+} from "../services/aiService";
 
-interface MessageForm {
-  message: string;
-}
-
-interface PlanForm {
-  preferences: string;
+interface ChatMessage {
+  id: string;
+  type: "user" | "ai";
+  content: string;
+  timestamp: Date;
 }
 
 export const AIAssistant: React.FC = () => {
-  const [loading, setLoading] = useState(false);
-  const [generatingPlan, setGeneratingPlan] = useState<'diet' | 'fitness' | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { chatMessages, healthPlans, userProfile, addChatMessage, generateHealthPlan } = useHealthStore();
+  const {
+    userProfile,
+    nutritionPlans,
+    fitnessPlans,
+    addNutritionPlan,
+    addFitnessPlan,
+    removeNutritionPlan,
+    removeFitnessPlan,
+  } = useHealthStore();
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [inputMessage, setInputMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState(0);
+  const [selectedPlan, setSelectedPlan] = useState<any>(null);
+  const [planDialogOpen, setPlanDialogOpen] = useState(false);
 
-  const messageForm = useForm<MessageForm>({
-    defaultValues: { message: '' },
-  });
+  const handleSendMessage = async () => {
+    if (!inputMessage.trim()) return;
 
-  const dietForm = useForm<PlanForm>({
-    defaultValues: { preferences: '' },
-  });
-
-  const fitnessForm = useForm<PlanForm>({
-    defaultValues: { preferences: '' },
-  });
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [chatMessages]);
-
-  // Add welcome message when component mounts and no messages exist
-  useEffect(() => {
-    if (chatMessages.length === 0) {
-      const welcomeMessage = userProfile.hasIntestinalDisease 
-        ? `Merhaba! Ben AI Sağlık Asistanınızım. ${userProfile.intestinalDiseaseType} ile ilgili size nasıl yardımcı olabilirim?`
-        : 'Merhaba! Ben AI Sağlık Asistanınızım. Sağlığınız hakkında size nasıl yardımcı olabilirim?';
-      
-      addChatMessage({
-        type: 'ai',
-        content: welcomeMessage,
-        timestamp: new Date(),
-      });
-    }
-  }, [chatMessages.length, userProfile, addChatMessage]);
-
-  const handleSendMessage = async (data: MessageForm) => {
-    if (!data.message.trim()) return;
-
-    addChatMessage({
-      type: 'user',
-      content: data.message,
+    const userMessage: ChatMessage = {
+      id: Date.now().toString(),
+      type: "user",
+      content: inputMessage,
       timestamp: new Date(),
-    });
+    };
 
-    messageForm.reset();
-    setLoading(true);
+    setMessages((prev) => [...prev, userMessage]);
+    setInputMessage("");
+    setIsLoading(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const responses = [
-        "Based on your health data, I recommend focusing on reducing inflammation through your diet. Consider incorporating more omega-3 rich foods like salmon and walnuts.",
-        "Your symptom patterns suggest you might benefit from a gut-friendly diet. I can help you create a personalized plan with probiotics and fiber-rich foods.",
-        "I notice you've been tracking symptoms regularly. This is great! Based on the data, I recommend discussing these patterns with your healthcare provider.",
-        "Your meal tracking shows good protein intake. To optimize your nutrition, consider adding more colorful vegetables for additional antioxidants.",
-      ];
-      
-      const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-      
-      addChatMessage({
-        type: 'ai',
-        content: randomResponse,
+    try {
+      const context = `Kullanıcı Profili: ${userProfile.disease} hastalığı, ${
+        userProfile.age
+      } yaşında. Diyet kısıtlamaları: ${userProfile.dietaryRestrictions?.join(
+        ", "
+      )}`;
+      const aiResponse = await chatWithAI(inputMessage, context);
+
+      const aiMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        type: "ai",
+        content: aiResponse,
         timestamp: new Date(),
-      });
-      setLoading(false);
-    }, 1000);
+      };
+
+      setMessages((prev) => [...prev, aiMessage]);
+    } catch (error) {
+      console.error("AI Chat error:", error);
+      const errorMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        type: "ai",
+        content: "Üzgünüm, bir hata oluştu. Lütfen tekrar deneyin.",
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleGeneratePlan = async (type: 'diet' | 'fitness', data: PlanForm) => {
-    if (!data.preferences.trim()) return;
-
-    setGeneratingPlan(type);
-    await generateHealthPlan(type, data.preferences);
-    setGeneratingPlan(null);
-    
-    if (type === 'diet') {
-      dietForm.reset();
-    } else {
-      fitnessForm.reset();
+  const handleGeneratePlan = async (type: "nutrition" | "fitness") => {
+    if (!userProfile.disease || !userProfile.age) {
+      alert("Lütfen önce sağlık profilinizi tamamlayın.");
+      return;
     }
+
+    setIsLoading(true);
+
+    try {
+      const userHealthProfile: UserHealthProfile = {
+        disease: userProfile.disease,
+        age: userProfile.age,
+        weight: userProfile.weight || 70,
+        height: userProfile.height || 170,
+        symptoms: [],
+        dietaryRestrictions: userProfile.dietaryRestrictions || [],
+        activityLevel: userProfile.activityLevel || "Hafif Aktif",
+      };
+
+      if (type === "nutrition") {
+        const plan = await generateNutritionPlan(userHealthProfile);
+        addNutritionPlan(plan);
+        setActiveTab(1); // Switch to plans tab
+      } else {
+        const plan = await generateFitnessPlan(userHealthProfile);
+        addFitnessPlan(plan);
+        setActiveTab(2); // Switch to plans tab
+      }
+    } catch (error) {
+      console.error("Plan generation error:", error);
+      alert("Plan oluşturulurken bir hata oluştu. Lütfen tekrar deneyin.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleViewPlan = (plan: any) => {
+    setSelectedPlan(plan);
+    setPlanDialogOpen(true);
+  };
+
+  const handleDeletePlan = (type: "nutrition" | "fitness", id: string) => {
+    if (type === "nutrition") {
+      removeNutritionPlan(id);
+    } else {
+      removeFitnessPlan(id);
+    }
+  };
+
+  const renderPlanDialog = () => {
+    if (!selectedPlan) return null;
+
+    return (
+      <Dialog
+        open={planDialogOpen}
+        onClose={() => setPlanDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          style: {
+            background: "rgba(255, 255, 255, 0.95)",
+            backdropFilter: "blur(20px)",
+            borderRadius: 16,
+          },
+        }}
+      >
+        <DialogTitle>
+          <Typography variant="h5" sx={{ fontWeight: 600, color: "#667eea" }}>
+            {selectedPlan.title}
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" sx={{ mb: 3 }}>
+            {selectedPlan.description}
+          </Typography>
+
+          {selectedPlan.meals && (
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+                Öğünler
+              </Typography>
+              {selectedPlan.meals.map((meal: any, index: number) => (
+                <Box
+                  key={index}
+                  sx={{
+                    mb: 2,
+                    p: 2,
+                    bgcolor: "rgba(102, 126, 234, 0.1)",
+                    borderRadius: 2,
+                  }}
+                >
+                  <Typography
+                    variant="subtitle1"
+                    sx={{ fontWeight: 600, mb: 1 }}
+                  >
+                    {meal.meal}
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 1 }}>
+                    <strong>Besinler:</strong> {meal.foods.join(", ")}
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 1 }}>
+                    <strong>Kalori:</strong> {meal.calories} kcal
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {meal.notes}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+          )}
+
+          {selectedPlan.exercises && (
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+                Egzersizler
+              </Typography>
+              {selectedPlan.exercises.map((exercise: any, index: number) => (
+                <Box
+                  key={index}
+                  sx={{
+                    mb: 2,
+                    p: 2,
+                    bgcolor: "rgba(102, 126, 234, 0.1)",
+                    borderRadius: 2,
+                  }}
+                >
+                  <Typography
+                    variant="subtitle1"
+                    sx={{ fontWeight: 600, mb: 1 }}
+                  >
+                    {exercise.name}
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 1 }}>
+                    <strong>Set:</strong> {exercise.sets} |{" "}
+                    <strong>Tekrar:</strong> {exercise.reps} |{" "}
+                    <strong>Süre:</strong> {exercise.duration}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {exercise.notes}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+          )}
+
+          {selectedPlan.recommendations && (
+            <Box>
+              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+                Öneriler
+              </Typography>
+              <List>
+                {selectedPlan.recommendations.map(
+                  (rec: string, index: number) => (
+                    <ListItem key={index} sx={{ py: 0.5 }}>
+                      <ListItemIcon sx={{ minWidth: 32 }}>
+                        <Typography variant="body2" color="primary">
+                          •
+                        </Typography>
+                      </ListItemIcon>
+                      <ListItemText primary={rec} />
+                    </ListItem>
+                  )
+                )}
+              </List>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPlanDialogOpen(false)}>Kapat</Button>
+        </DialogActions>
+      </Dialog>
+    );
   };
 
   return (
-    <Box sx={{ p: 3, height: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <Typography variant="h4" sx={{ fontWeight: 700, mb: 4 }}>
-        AI Health Assistant
-      </Typography>
-
-      <Grid container spacing={3} sx={{ flex: 1, minHeight: 0 }}>
-        {/* Chat Interface */}
-        <Grid item xs={12} md={8}>
-          <GlassCard sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            <Box sx={{ p: 3, borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Avatar sx={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
-                  <Psychology />
-                </Avatar>
-                <Box>
-                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                    AI Health Assistant
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Your personal health companion
-                  </Typography>
-                </Box>
+    <Box sx={{ p: 2, width: "100%" }}>
+      <Grid container spacing={3}>
+        {/* AI Chat Section */}
+        <Grid item xs={12} md={6}>
+          <GlassCard>
+            <CardContent sx={{ p: 3 }}>
+              <Box sx={{ display: "flex", alignItems: "center", mb: 3 }}>
+                <Message sx={{ color: "#667eea", mr: 2, fontSize: 28 }} />
+                <Typography variant="h5" sx={{ fontWeight: 600 }}>
+                  AI Sağlık Asistanı
+                </Typography>
               </Box>
-            </Box>
 
-            {/* Messages */}
-            <Box sx={{ flex: 1, p: 2, overflowY: 'auto' }}>
-              {chatMessages.map((message) => (
-                <Fade in key={message.id} timeout={500}>
+              {/* Chat Messages */}
+              <Box
+                sx={{
+                  height: 400,
+                  overflowY: "auto",
+                  mb: 3,
+                  p: 2,
+                  bgcolor: "rgba(0,0,0,0.02)",
+                  borderRadius: 2,
+                }}
+              >
+                {messages.length === 0 ? (
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ textAlign: "center", py: 4 }}
+                  >
+                    Sağlığınızla ilgili sorularınızı sorun, size yardımcı
+                    olayım!
+                  </Typography>
+                ) : (
+                  messages.map((message) => (
+                    <Box
+                      key={message.id}
+                      sx={{
+                        display: "flex",
+                        justifyContent:
+                          message.type === "user" ? "flex-end" : "flex-start",
+                        mb: 2,
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          maxWidth: "70%",
+                          p: 2,
+                          borderRadius: 2,
+                          bgcolor:
+                            message.type === "user"
+                              ? "#667eea"
+                              : "rgba(102, 126, 234, 0.1)",
+                          color: message.type === "user" ? "white" : "inherit",
+                        }}
+                      >
+                        <Typography variant="body2">
+                          {message.content}
+                        </Typography>
+                        <Typography
+                          variant="caption"
+                          sx={{ opacity: 0.7, mt: 1, display: "block" }}
+                        >
+                          {message.timestamp.toLocaleTimeString()}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  ))
+                )}
+                {isLoading && (
                   <Box
                     sx={{
-                      display: 'flex',
-                      justifyContent: message.type === 'user' ? 'flex-end' : 'flex-start',
+                      display: "flex",
+                      justifyContent: "flex-start",
                       mb: 2,
                     }}
                   >
-                    <Paper
+                    <Box
                       sx={{
                         p: 2,
-                        maxWidth: '70%',
-                        background: message.type === 'user'
-                          ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
-                          : 'rgba(255, 255, 255, 0.1)',
-                        color: message.type === 'user' ? 'white' : 'inherit',
-                        borderRadius: 3,
-                        backdropFilter: 'blur(10px)',
+                        borderRadius: 2,
+                        bgcolor: "rgba(102, 126, 234, 0.1)",
                       }}
                     >
-                      <Typography variant="body1">{message.content}</Typography>
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          opacity: 0.7,
-                          mt: 1,
-                          display: 'block',
-                        }}
-                      >
-                        {format(message.timestamp, 'HH:mm')}
-                      </Typography>
-                    </Paper>
+                      <CircularProgress size={20} />
+                    </Box>
                   </Box>
-                </Fade>
-              ))}
-              {loading && (
-                <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: 2 }}>
-                  <Paper
-                    sx={{
-                      p: 2,
-                      background: 'rgba(255, 255, 255, 0.1)',
-                      borderRadius: 3,
-                      backdropFilter: 'blur(10px)',
-                    }}
-                  >
-                    <CircularProgress size={20} />
-                    <Typography variant="body2" sx={{ ml: 2, display: 'inline' }}>
-                      AI is thinking...
-                    </Typography>
-                  </Paper>
-                </Box>
-              )}
-              <div ref={messagesEndRef} />
-            </Box>
+                )}
+              </Box>
 
-            {/* Message Input */}
-            <Box
-              component="form"
-              onSubmit={messageForm.handleSubmit(handleSendMessage)}
-              sx={{ p: 2, borderTop: '1px solid rgba(255, 255, 255, 0.1)' }}
-            >
-              <Box sx={{ display: 'flex', gap: 2 }}>
+              {/* Chat Input */}
+              <Box sx={{ display: "flex", gap: 1 }}>
                 <TextField
                   fullWidth
-                  placeholder="Ask me anything about your health..."
-                  variant="outlined"
-                  {...messageForm.register('message')}
+                  placeholder="Sağlığınızla ilgili sorularınızı sorun..."
+                  value={inputMessage}
+                  onChange={(e) => setInputMessage(e.target.value)}
+                  onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
+                  disabled={isLoading}
                   sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: 6,
+                    "& .MuiOutlinedInput-root": {
+                      borderRadius: 2,
                     },
                   }}
                 />
                 <Button
-                  type="submit"
+                  onClick={handleSendMessage}
+                  disabled={isLoading || !inputMessage.trim()}
                   variant="contained"
-                  disabled={loading}
                   sx={{
-                    minWidth: 56,
-                    borderRadius: 6,
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    background:
+                      "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                    borderRadius: 2,
+                    minWidth: 48,
                   }}
                 >
                   <Send />
                 </Button>
               </Box>
-            </Box>
+            </CardContent>
           </GlassCard>
         </Grid>
 
-        {/* Plan Generation */}
-        <Grid item xs={12} md={4}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, height: '100%' }}>
-            {/* Diet Plan Generator */}
-            <GlassCard>
-              <CardContent sx={{ p: 3 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <Restaurant sx={{ color: '#22c55e', mr: 2 }} />
-                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                    Generate Diet Plan
-                  </Typography>
-                </Box>
-                <Box
-                  component="form"
-                  onSubmit={dietForm.handleSubmit((data) => handleGeneratePlan('diet', data))}
-                  sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
-                >
-                  <TextField
-                    fullWidth
-                    multiline
-                    rows={3}
-                    placeholder="Tell me your dietary preferences, allergies, and goals..."
-                    variant="outlined"
-                    {...dietForm.register('preferences')}
-                  />
+        {/* Plan Generator Section */}
+        <Grid item xs={12} md={6}>
+          <GlassCard>
+            <CardContent sx={{ p: 3 }}>
+              <Box sx={{ display: "flex", alignItems: "center", mb: 3 }}>
+                <Psychology sx={{ color: "#f59e0b", mr: 2, fontSize: 28 }} />
+                <Typography variant="h5" sx={{ fontWeight: 600 }}>
+                  Plan Oluşturucu
+                </Typography>
+              </Box>
+
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                AI destekli kişiselleştirilmiş beslenme ve fitness planları
+                oluşturun.
+              </Typography>
+
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
                   <Button
-                    type="submit"
-                    variant="contained"
-                    disabled={generatingPlan === 'diet'}
-                    startIcon={generatingPlan === 'diet' ? <CircularProgress size={20} /> : <AutoAwesome />}
+                    fullWidth
+                    variant="outlined"
+                    startIcon={<Restaurant />}
+                    onClick={() => handleGeneratePlan("nutrition")}
+                    disabled={isLoading}
                     sx={{
-                      background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
-                      '&:hover': {
-                        background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
+                      borderRadius: 2,
+                      py: 2,
+                      borderColor: "#22c55e",
+                      color: "#22c55e",
+                      "&:hover": {
+                        borderColor: "#16a34a",
+                        bgcolor: "rgba(34, 197, 94, 0.1)",
                       },
                     }}
                   >
-                    {generatingPlan === 'diet' ? 'Generating...' : 'Generate Plan'}
+                    Beslenme Planı Oluştur
                   </Button>
-                </Box>
-              </CardContent>
-            </GlassCard>
-
-            {/* Fitness Plan Generator */}
-            <GlassCard>
-              <CardContent sx={{ p: 3 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <FitnessCenter sx={{ color: '#667eea', mr: 2 }} />
-                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                    Generate Fitness Plan
-                  </Typography>
-                </Box>
-                <Box
-                  component="form"
-                  onSubmit={fitnessForm.handleSubmit((data) => handleGeneratePlan('fitness', data))}
-                  sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
-                >
-                  <TextField
-                    fullWidth
-                    multiline
-                    rows={3}
-                    placeholder="Describe your fitness level, goals, and available equipment..."
-                    variant="outlined"
-                    {...fitnessForm.register('preferences')}
-                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
                   <Button
-                    type="submit"
-                    variant="contained"
-                    disabled={generatingPlan === 'fitness'}
-                    startIcon={generatingPlan === 'fitness' ? <CircularProgress size={20} /> : <AutoAwesome />}
+                    fullWidth
+                    variant="outlined"
+                    startIcon={<FitnessCenter />}
+                    onClick={() => handleGeneratePlan("fitness")}
+                    disabled={isLoading}
                     sx={{
-                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      borderRadius: 2,
+                      py: 2,
+                      borderColor: "#667eea",
+                      color: "#667eea",
+                      "&:hover": {
+                        borderColor: "#5b21b6",
+                        bgcolor: "rgba(102, 126, 234, 0.1)",
+                      },
                     }}
                   >
-                    {generatingPlan === 'fitness' ? 'Generating...' : 'Generate Plan'}
+                    Fitness Planı Oluştur
                   </Button>
-                </Box>
-              </CardContent>
-            </GlassCard>
+                </Grid>
+              </Grid>
 
-            {/* Generated Plans */}
-            {healthPlans.length > 0 && (
-              <GlassCard sx={{ flex: 1 }}>
-                <CardContent sx={{ p: 3 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-                    Your Plans
-                  </Typography>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    {healthPlans.slice(-2).map((plan) => (
-                      <Fade in key={plan.id} timeout={500}>
-                        <Box
-                          sx={{
-                            p: 2,
-                            borderRadius: 2,
-                            background: 'rgba(255, 255, 255, 0.1)',
-                            border: '1px solid rgba(255, 255, 255, 0.1)',
-                          }}
-                        >
-                          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                            <Chip
-                              label={plan.type.toUpperCase()}
-                              size="small"
-                              sx={{
-                                background: plan.type === 'diet' ? '#22c55e' : '#667eea',
-                                color: 'white',
-                                mr: 2,
-                              }}
-                            />
-                            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                              {plan.title}
-                            </Typography>
-                          </Box>
-                          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                            {plan.description}
-                          </Typography>
-                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                            {plan.items.slice(0, 2).map((item, index) => (
-                              <Box key={index} sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-                                <CheckCircle sx={{ fontSize: 16, color: '#22c55e', mt: 0.5 }} />
-                                <Typography variant="body2" sx={{ flex: 1 }}>
-                                  {item}
-                                </Typography>
-                              </Box>
-                            ))}
-                            {plan.items.length > 2 && (
-                              <Typography variant="body2" color="text.secondary">
-                                +{plan.items.length - 2} more items
-                              </Typography>
-                            )}
-                          </Box>
-                        </Box>
-                      </Fade>
-                    ))}
-                  </Box>
-                </CardContent>
-              </GlassCard>
-            )}
-          </Box>
+              {isLoading && (
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    mt: 3,
+                  }}
+                >
+                  <CircularProgress size={24} sx={{ mr: 2 }} />
+                  <Typography variant="body2">Plan oluşturuluyor...</Typography>
+                </Box>
+              )}
+            </CardContent>
+          </GlassCard>
         </Grid>
       </Grid>
+
+      {/* Plans Section */}
+      <GlassCard sx={{ mt: 3 }}>
+        <CardContent sx={{ p: 3 }}>
+          <Box sx={{ display: "flex", alignItems: "center", mb: 3 }}>
+            <Psychology sx={{ color: "#667eea", mr: 2, fontSize: 28 }} />
+            <Typography variant="h5" sx={{ fontWeight: 600 }}>
+              Oluşturulan Planlar
+            </Typography>
+          </Box>
+
+          <Tabs
+            value={activeTab}
+            onChange={(e, newValue) => setActiveTab(newValue)}
+            sx={{ mb: 3 }}
+          >
+            <Tab label={`Beslenme Planları (${nutritionPlans.length})`} />
+            <Tab label={`Fitness Planları (${fitnessPlans.length})`} />
+          </Tabs>
+
+          {activeTab === 0 && (
+            <Grid container spacing={2}>
+              {nutritionPlans.length === 0 ? (
+                <Grid item xs={12}>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ textAlign: "center", py: 4 }}
+                  >
+                    Henüz beslenme planı oluşturulmadı.
+                  </Typography>
+                </Grid>
+              ) : (
+                nutritionPlans.map((plan) => (
+                  <Grid item xs={12} sm={6} md={4} key={plan.id}>
+                    <Card
+                      sx={{
+                        borderRadius: 2,
+                        bgcolor: "rgba(255, 255, 255, 0.1)",
+                      }}
+                    >
+                      <CardContent sx={{ p: 2 }}>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "flex-start",
+                            mb: 2,
+                          }}
+                        >
+                          <Typography
+                            variant="h6"
+                            sx={{ fontWeight: 600, flex: 1 }}
+                          >
+                            {plan.title}
+                          </Typography>
+                          <Box>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleViewPlan(plan)}
+                              sx={{ color: "#667eea" }}
+                            >
+                              <Visibility />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              onClick={() =>
+                                handleDeletePlan("nutrition", plan.id)
+                              }
+                              sx={{ color: "#ef4444" }}
+                            >
+                              <Delete />
+                            </IconButton>
+                          </Box>
+                        </Box>
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{ mb: 2 }}
+                        >
+                          {plan.description}
+                        </Typography>
+                        <Chip
+                          label={plan.duration}
+                          size="small"
+                          sx={{ borderRadius: 1 }}
+                        />
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                ))
+              )}
+            </Grid>
+          )}
+
+          {activeTab === 1 && (
+            <Grid container spacing={2}>
+              {fitnessPlans.length === 0 ? (
+                <Grid item xs={12}>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ textAlign: "center", py: 4 }}
+                  >
+                    Henüz fitness planı oluşturulmadı.
+                  </Typography>
+                </Grid>
+              ) : (
+                fitnessPlans.map((plan) => (
+                  <Grid item xs={12} sm={6} md={4} key={plan.id}>
+                    <Card
+                      sx={{
+                        borderRadius: 2,
+                        bgcolor: "rgba(255, 255, 255, 0.1)",
+                      }}
+                    >
+                      <CardContent sx={{ p: 2 }}>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "flex-start",
+                            mb: 2,
+                          }}
+                        >
+                          <Typography
+                            variant="h6"
+                            sx={{ fontWeight: 600, flex: 1 }}
+                          >
+                            {plan.title}
+                          </Typography>
+                          <Box>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleViewPlan(plan)}
+                              sx={{ color: "#667eea" }}
+                            >
+                              <Visibility />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              onClick={() =>
+                                handleDeletePlan("fitness", plan.id)
+                              }
+                              sx={{ color: "#ef4444" }}
+                            >
+                              <Delete />
+                            </IconButton>
+                          </Box>
+                        </Box>
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{ mb: 2 }}
+                        >
+                          {plan.description}
+                        </Typography>
+                        <Chip
+                          label={plan.duration}
+                          size="small"
+                          sx={{ borderRadius: 1 }}
+                        />
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                ))
+              )}
+            </Grid>
+          )}
+        </CardContent>
+      </GlassCard>
+
+      {renderPlanDialog()}
     </Box>
   );
 };

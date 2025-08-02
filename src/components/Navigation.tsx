@@ -1,5 +1,5 @@
-import React from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import React from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   Drawer,
   List,
@@ -13,7 +13,7 @@ import {
   Divider,
   IconButton,
   Switch,
-} from '@mui/material';
+} from "@mui/material";
 import {
   Dashboard,
   Psychology,
@@ -23,12 +23,12 @@ import {
   Logout,
   DarkMode,
   LightMode,
-} from '@mui/icons-material';
-import { useAuthStore } from '../store/authStore';
-import { useThemeStore } from '../store/themeStore';
-import { GlassCard } from './GlassCard';
+} from "@mui/icons-material";
+import { useAuthStore } from "../store/authStore";
+import { useThemeStore } from "../store/themeStore";
+import { GlassCard } from "./GlassCard";
 
-const drawerWidth = 280;
+const drawerWidth = 240;
 
 export const Navigation: React.FC = () => {
   const { user, logout } = useAuthStore();
@@ -37,10 +37,14 @@ export const Navigation: React.FC = () => {
   const location = useLocation();
 
   const menuItems = [
-    { path: '/dashboard', label: 'Dashboard', icon: <Dashboard /> },
-    { path: '/ai-assistant', label: 'AI Assistant', icon: <Psychology /> },
-    { path: '/intestinal-tracker', label: 'Symptom Tracker', icon: <LocalHospital /> },
-    { path: '/meal-tracker', label: 'Meal Tracker', icon: <Restaurant /> },
+    { path: "/dashboard", label: "Ana Sayfa", icon: <Dashboard /> },
+    { path: "/ai-assistant", label: "AI Asistan", icon: <Psychology /> },
+    {
+      path: "/intestinal-tracker",
+      label: "Semptom Takibi",
+      icon: <LocalHospital />,
+    },
+    { path: "/meal-tracker", label: "Yemek Takibi", icon: <Restaurant /> },
   ];
 
   return (
@@ -49,100 +53,145 @@ export const Navigation: React.FC = () => {
       sx={{
         width: drawerWidth,
         flexShrink: 0,
-        display: { xs: 'none', md: 'block' },
-        '& .MuiDrawer-paper': {
+        display: { xs: "none", md: "block" },
+        "& .MuiDrawer-paper": {
           width: drawerWidth,
-          boxSizing: 'border-box',
-          background: 'transparent',
-          border: 'none',
-          padding: 2,
+          boxSizing: "border-box",
+          background: "transparent",
+          border: "none",
+          padding: 0,
         },
       }}
     >
-      <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-        <GlassCard sx={{ mb: 2, p: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Avatar
-              src={user?.avatar}
-              sx={{ width: 48, height: 48 }}
-            >
+      <Box
+        sx={{ display: "flex", flexDirection: "column", height: "100%", p: 0 }}
+      >
+        <GlassCard sx={{ mb: 0.5, p: 0.5 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <Avatar src={user?.avatar} sx={{ width: 35, height: 35 }}>
               {user?.name?.charAt(0)}
             </Avatar>
             <Box>
-              <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              <Typography
+                variant="body2"
+                sx={{ fontWeight: 600, fontSize: "0.8rem" }}
+              >
                 {user?.name}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ fontSize: "0.7rem" }}
+              >
                 {user?.email}
               </Typography>
             </Box>
           </Box>
         </GlassCard>
 
-        <GlassCard sx={{ flex: 1, p: 1 }}>
-          <List>
+        <GlassCard sx={{ flex: 1, p: 0.25 }}>
+          <List sx={{ py: 0 }}>
             {menuItems.map((item) => (
-              <ListItem key={item.path} disablePadding sx={{ mb: 0.5 }}>
+              <ListItem key={item.path} disablePadding sx={{ mb: 0.2 }}>
                 <ListItemButton
                   selected={location.pathname === item.path}
                   onClick={() => navigate(item.path)}
                   sx={{
-                    borderRadius: 2,
-                    '&.Mui-selected': {
-                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                      color: 'white',
-                      '&:hover': {
-                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                      },
+                    borderRadius: 1,
+                    mx: 0.5,
+                    "&.Mui-selected": {
+                      background:
+                        "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                      color: "white",
                     },
                   }}
                 >
                   <ListItemIcon
                     sx={{
-                      color: location.pathname === item.path ? 'white' : 'inherit',
+                      color: "inherit",
+                      minWidth: 40,
+                      "& .MuiSvgIcon-root": { fontSize: 20 },
                     }}
                   >
                     {item.icon}
                   </ListItemIcon>
-                  <ListItemText primary={item.label} />
+                  <ListItemText
+                    primary={item.label}
+                    sx={{
+                      "& .MuiListItemText-primary": {
+                        fontSize: "0.85rem",
+                        fontWeight: 500,
+                      },
+                    }}
+                  />
                 </ListItemButton>
               </ListItem>
             ))}
           </List>
+        </GlassCard>
 
-          <Divider sx={{ my: 2 }} />
-
-          <List>
-            <ListItem disablePadding>
-              <ListItemButton sx={{ borderRadius: 2 }}>
-                <ListItemIcon>
-                  {isDark ? <LightMode /> : <DarkMode />}
-                </ListItemIcon>
-                <ListItemText primary="Dark Mode" />
-                <Switch
-                  checked={isDark}
-                  onChange={toggleTheme}
-                  size="small"
-                />
-              </ListItemButton>
-            </ListItem>
-            <ListItem disablePadding>
-              <ListItemButton sx={{ borderRadius: 2 }}>
-                <ListItemIcon>
-                  <Settings />
-                </ListItemIcon>
-                <ListItemText primary="Settings" />
-              </ListItemButton>
-            </ListItem>
-            <ListItem disablePadding>
-              <ListItemButton onClick={logout} sx={{ borderRadius: 2 }}>
-                <ListItemIcon>
-                  <Logout />
-                </ListItemIcon>
-                <ListItemText primary="Logout" />
-              </ListItemButton>
-            </ListItem>
-          </List>
+        <GlassCard sx={{ mt: 0.5, p: 0.5 }}>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              mb: 1,
+            }}
+          >
+            <Typography
+              variant="body2"
+              sx={{ fontWeight: 600, fontSize: "0.8rem" }}
+            >
+              Tema
+            </Typography>
+            <Switch
+              checked={isDark}
+              onChange={toggleTheme}
+              size="small"
+              sx={{
+                "& .MuiSwitch-switchBase.Mui-checked": {
+                  color: "#667eea",
+                },
+                "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
+                  backgroundColor: "#667eea",
+                },
+              }}
+            />
+          </Box>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            {isDark ? (
+              <DarkMode sx={{ fontSize: 16 }} />
+            ) : (
+              <LightMode sx={{ fontSize: 16 }} />
+            )}
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ fontSize: "0.7rem" }}
+            >
+              {isDark ? "Karanlık" : "Aydınlık"} Mod
+            </Typography>
+          </Box>
+          <Divider sx={{ my: 1 }} />
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <IconButton
+              size="small"
+              onClick={logout}
+              sx={{
+                color: "#ef4444",
+              }}
+            >
+              <Logout sx={{ fontSize: 16 }} />
+            </IconButton>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ fontSize: "0.7rem" }}
+            >
+              Çıkış Yap
+            </Typography>
+          </Box>
         </GlassCard>
       </Box>
     </Drawer>
