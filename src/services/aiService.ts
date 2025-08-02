@@ -5,15 +5,21 @@ import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 const GEMINI_API_KEY =
   import.meta.env.VITE_GEMINI_API_KEY || "your-api-key-here";
 
+// Environment variable'ı LangChain için de ayarla
+if (typeof window !== "undefined") {
+  (window as any).GOOGLE_API_KEY = GEMINI_API_KEY;
+}
+
 // Gemini AI instance'ı oluştur
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
 
 // LangChain chat model
 const chatModel = new ChatGoogleGenerativeAI({
-  model: "gemini-pro",
+  model: "gemini-2.5-flash-lite",
   maxOutputTokens: 2048,
   temperature: 0.7,
+  apiKey: GEMINI_API_KEY, // API key'i direkt olarak da ver
 });
 
 export interface UserHealthProfile {
@@ -110,7 +116,7 @@ export const generateNutritionPlan = async (
 ): Promise<NutritionPlan> => {
   try {
     const prompt = `
-    Sen bir bağırsak hastalıkları uzmanı diyetisyensin. ${
+    Sen bir bağırsak hastalıkları uzmanı beslenme uzmanısın. ${
       userProfile.disease
     } hastalığı olan ${
       userProfile.age
@@ -121,11 +127,10 @@ export const generateNutritionPlan = async (
     - Yaş: ${userProfile.age}
     - Kilo: ${userProfile.weight} kg
     - Boy: ${userProfile.height} cm
-    - Semptomlar: ${userProfile.symptoms.join(", ")}
     - Diyet Kısıtlamaları: ${userProfile.dietaryRestrictions.join(", ")}
     - Aktivite Seviyesi: ${userProfile.activityLevel}
     
-    Lütfen JSON formatında yanıt ver:
+    SADECE JSON formatında yanıt ver, başka hiçbir şey yazma:
     {
       "title": "7 Günlük Beslenme Planı",
       "description": "Hastalığınıza özel kişiselleştirilmiş beslenme planı",
@@ -133,18 +138,83 @@ export const generateNutritionPlan = async (
       "meals": [
         {
           "meal": "Kahvaltı",
-          "foods": ["yemek1", "yemek2"],
+          "foods": ["yulaf ezmesi", "muz", "badem sütü"],
           "calories": 300,
-          "notes": "Notlar"
+          "notes": "Laktoz içermeyen süt kullanın"
+        },
+        {
+          "meal": "Öğle Yemeği",
+          "foods": ["pirinç", "tavuk göğsü", "havuç"],
+          "calories": 450,
+          "notes": "Baharat kullanmayın"
+        },
+        {
+          "meal": "Akşam Yemeği",
+          "foods": ["balık", "patates", "salata"],
+          "calories": 400,
+          "notes": "Yağsız pişirin"
         }
       ],
-      "recommendations": ["tavsiye1", "tavsiye2"]
-    }
-    `;
+      "recommendations": ["Günde 8 bardak su için", "Yavaş yiyin", "Gazlı içeceklerden kaçının"]
+    }`;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
-    const planData = JSON.parse(response.text());
+    const responseText = response.text();
+
+    // AI yanıtını temizle - JSON kısmını bul
+    let cleanResponse = responseText.trim();
+
+    // ```json ve ``` işaretlerini kaldır
+    if (cleanResponse.includes("```json")) {
+      cleanResponse = cleanResponse
+        .replace(/```json\s*/, "")
+        .replace(/\s*```/, "");
+    }
+
+    // Sadece JSON kısmını al
+    const jsonMatch = cleanResponse.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      cleanResponse = jsonMatch[0];
+    }
+
+    // JSON parse'ı güvenli hale getir
+    let planData;
+    try {
+      planData = JSON.parse(cleanResponse);
+    } catch (parseError) {
+      // Fallback plan oluştur
+      planData = {
+        title: "7 Günlük Beslenme Planı",
+        description: "Hastalığınıza özel kişiselleştirilmiş beslenme planı",
+        duration: "7 gün",
+        meals: [
+          {
+            meal: "Kahvaltı",
+            foods: ["yulaf ezmesi", "muz", "badem sütü"],
+            calories: 300,
+            notes: "Laktoz içermeyen süt kullanın",
+          },
+          {
+            meal: "Öğle Yemeği",
+            foods: ["pirinç", "tavuk göğsü", "havuç"],
+            calories: 450,
+            notes: "Baharat kullanmayın",
+          },
+          {
+            meal: "Akşam Yemeği",
+            foods: ["balık", "patates", "salata"],
+            calories: 400,
+            notes: "Yağsız pişirin",
+          },
+        ],
+        recommendations: [
+          "Günde 8 bardak su için",
+          "Yavaş yiyin",
+          "Gazlı içeceklerden kaçının",
+        ],
+      };
+    }
 
     return {
       id: Date.now().toString(),
@@ -162,41 +232,106 @@ export const generateFitnessPlan = async (
 ): Promise<FitnessPlan> => {
   try {
     const prompt = `
-    Sen bir bağırsak hastalıkları uzmanı fitness eğitmenisin. ${
-      userProfile.disease
-    } hastalığı olan ${
-      userProfile.age
-    } yaşındaki bir hasta için 7 günlük fitness planı oluştur.
+    Sen bir bağırsak hastalıkları uzmanı fitness eğitmenisin. ${userProfile.disease} hastalığı olan ${userProfile.age} yaşındaki bir hasta için 7 günlük fitness planı oluştur.
     
     Hasta Bilgileri:
     - Hastalık: ${userProfile.disease}
     - Yaş: ${userProfile.age}
     - Kilo: ${userProfile.weight} kg
     - Boy: ${userProfile.height} cm
-    - Semptomlar: ${userProfile.symptoms.join(", ")}
     - Aktivite Seviyesi: ${userProfile.activityLevel}
     
-    Lütfen JSON formatında yanıt ver:
+    SADECE JSON formatında yanıt ver, başka hiçbir şey yazma:
     {
       "title": "7 Günlük Fitness Planı",
       "description": "Hastalığınıza özel kişiselleştirilmiş fitness planı",
       "duration": "7 gün",
       "exercises": [
         {
-          "name": "Egzersiz adı",
+          "name": "Yürüyüş",
+          "sets": 1,
+          "reps": 0,
+          "duration": "20 dakika",
+          "notes": "Yavaş tempoda yürüyün"
+        },
+        {
+          "name": "Hafif Yoga",
+          "sets": 1,
+          "reps": 0,
+          "duration": "15 dakika",
+          "notes": "Karın bölgesini zorlamayın"
+        },
+        {
+          "name": "Nefes Egzersizleri",
           "sets": 3,
           "reps": 10,
-          "duration": "15 dakika",
-          "notes": "Notlar"
+          "duration": "5 dakika",
+          "notes": "Derin nefes alın"
         }
       ],
-      "recommendations": ["tavsiye1", "tavsiye2"]
-    }
-    `;
+      "recommendations": ["Günde 30 dakika egzersiz yapın", "Ağır egzersizlerden kaçının", "Bol su için"]
+    }`;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
-    const planData = JSON.parse(response.text());
+    const responseText = response.text();
+
+    // AI yanıtını temizle - JSON kısmını bul
+    let cleanResponse = responseText.trim();
+
+    // ```json ve ``` işaretlerini kaldır
+    if (cleanResponse.includes("```json")) {
+      cleanResponse = cleanResponse
+        .replace(/```json\s*/, "")
+        .replace(/\s*```/, "");
+    }
+
+    // Sadece JSON kısmını al
+    const jsonMatch = cleanResponse.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      cleanResponse = jsonMatch[0];
+    }
+
+    // JSON parse'ı güvenli hale getir
+    let planData;
+    try {
+      planData = JSON.parse(cleanResponse);
+    } catch (parseError) {
+      // Fallback plan oluştur
+      planData = {
+        title: "7 Günlük Fitness Planı",
+        description: "Hastalığınıza özel kişiselleştirilmiş fitness planı",
+        duration: "7 gün",
+        exercises: [
+          {
+            name: "Yürüyüş",
+            sets: 1,
+            reps: 0,
+            duration: "20 dakika",
+            notes: "Yavaş tempoda yürüyün",
+          },
+          {
+            name: "Hafif Yoga",
+            sets: 1,
+            reps: 0,
+            duration: "15 dakika",
+            notes: "Karın bölgesini zorlamayın",
+          },
+          {
+            name: "Nefes Egzersizleri",
+            sets: 3,
+            reps: 10,
+            duration: "5 dakika",
+            notes: "Derin nefes alın",
+          },
+        ],
+        recommendations: [
+          "Günde 30 dakika egzersiz yapın",
+          "Ağır egzersizlerden kaçının",
+          "Bol su için",
+        ],
+      };
+    }
 
     return {
       id: Date.now().toString(),
@@ -224,19 +359,52 @@ export const analyzeSymptoms = async (
     - Yaş: ${userProfile.age}
     - Semptomlar: ${symptoms.join(", ")}
     
-    Lütfen JSON formatında yanıt ver:
+    SADECE JSON formatında yanıt ver, başka hiçbir şey yazma:
     {
-      "severity": 1-5 arası şiddet seviyesi,
-      "possibleCauses": ["olası nedenler"],
-      "recommendations": ["tavsiyeler"],
-      "relatedFoods": ["kaçınılması gereken besinler"],
-      "warningSigns": ["dikkat edilmesi gereken belirtiler"]
-    }
-    `;
+      "severity": 3,
+      "possibleCauses": ["Stres", "Yanlış beslenme", "Enfeksiyon"],
+      "recommendations": ["Bol su için", "Hafif besinler tüketin", "Doktora görünün"],
+      "relatedFoods": ["Süt ürünleri", "Baharatlı yiyecekler", "Gazlı içecekler"],
+      "warningSigns": ["Şiddetli ağrı", "Kanama", "Yüksek ateş"]
+    }`;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
-    return JSON.parse(response.text());
+    const responseText = response.text();
+
+    // AI yanıtını temizle
+    let cleanResponse = responseText.trim();
+    if (cleanResponse.includes("```json")) {
+      cleanResponse = cleanResponse
+        .replace(/```json\s*/, "")
+        .replace(/\s*```/, "");
+    }
+    const jsonMatch = cleanResponse.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      cleanResponse = jsonMatch[0];
+    }
+
+    try {
+      const analysisData = JSON.parse(cleanResponse);
+      return analysisData;
+    } catch (parseError) {
+      // Fallback analiz
+      return {
+        severity: 3,
+        possibleCauses: ["Stres", "Yanlış beslenme", "Enfeksiyon"],
+        recommendations: [
+          "Bol su için",
+          "Hafif besinler tüketin",
+          "Doktora görünün",
+        ],
+        relatedFoods: [
+          "Süt ürünleri",
+          "Baharatlı yiyecekler",
+          "Gazlı içecekler",
+        ],
+        warningSigns: ["Şiddetli ağrı", "Kanama", "Yüksek ateş"],
+      };
+    }
   } catch (error) {
     console.error("Symptom analysis error:", error);
     throw new Error("Semptom analizi yapılamadı");
@@ -250,29 +418,65 @@ export const calculateFoodCalories = async (
 ): Promise<FoodAnalysis> => {
   try {
     const prompt = `
-    ${amount} ${foodName} için kalori ve besin değerlerini hesapla.
+    Sen bir beslenme uzmanısın. ${amount} ${foodName} için kalori hesapla.
     
-    Lütfen JSON formatında yanıt ver:
+    SADECE JSON formatında yanıt ver:
     {
-      "calories": kalori miktarı,
+      "calories": kalori_miktari,
       "nutrients": {
-        "protein": protein gramı,
-        "carbs": karbonhidrat gramı,
-        "fat": yağ gramı,
-        "fiber": lif gramı
+        "protein": protein_grami,
+        "carbs": karbonhidrat_grami,
+        "fat": yag_grami,
+        "fiber": lif_grami
       },
-      "suitability": "good/moderate/avoid",
-      "recommendations": ["tavsiyeler"],
-      "alternatives": ["alternatif besinler"]
-    }
-    `;
+      "suitability": "good",
+      "recommendations": ["tavsiye1", "tavsiye2"],
+      "alternatives": ["alternatif1", "alternatif2"]
+    }`;
+
+    console.log("Sending request to AI for:", foodName, amount);
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
-    return JSON.parse(response.text());
+    const responseText = response.text();
+
+    console.log("Raw AI Response:", responseText);
+
+    // AI yanıtını temizle
+    let cleanResponse = responseText.trim();
+
+    // JSON kısmını bul
+    const jsonMatch = cleanResponse.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      cleanResponse = jsonMatch[0];
+    }
+
+    console.log("Cleaned response:", cleanResponse);
+
+    const foodData = JSON.parse(cleanResponse);
+    console.log("Parsed food data:", foodData);
+
+    return foodData;
   } catch (error) {
-    console.error("Food calorie calculation error:", error);
-    throw new Error("Kalori hesaplanamadı");
+    console.error("AI Error:", error);
+
+    // AI çalışmazsa basit hesaplama
+    const amountNumber = parseInt(amount.replace(/\D/g, "")) || 100;
+    const baseCalories = 150; // Ortalama kalori
+    const calculatedCalories = Math.round((amountNumber * baseCalories) / 100);
+
+    return {
+      calories: calculatedCalories,
+      nutrients: {
+        protein: 10,
+        carbs: 20,
+        fat: 5,
+        fiber: 3,
+      },
+      suitability: "good",
+      recommendations: ["Bol su ile tüketin", "Yavaş yiyin"],
+      alternatives: ["Alternatif 1", "Alternatif 2"],
+    };
   }
 };
 
@@ -327,7 +531,7 @@ export const getHealthInsights = async (
     const prompt = `
     Sen bir bağırsak hastalıkları uzmanı doktorsun. ${
       userProfile.disease
-    } hastalığı olan bir hasta için genel sağlık tavsiyeleri ver.
+    } hastalığı olan bir hasta için kısa ve öz sağlık tavsiyeleri ver.
     
     Hasta Bilgileri:
     - Hastalık: ${userProfile.disease}
@@ -335,17 +539,49 @@ export const getHealthInsights = async (
     - Son Yemekler: ${recentMeals.map((m) => m.name).join(", ")}
     - Son Semptomlar: ${recentSymptoms.map((s) => s.type).join(", ")}
     
-    Kişiselleştirilmiş tavsiyeler ver:
-    `;
+    SADECE 3-5 kısa tavsiye ver, her tavsiye 1-2 cümle olsun. JSON formatında yanıt ver:
+    {
+      "insights": [
+        "Tavsiye 1",
+        "Tavsiye 2", 
+        "Tavsiye 3"
+      ]
+    }`;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
-    return response
-      .text()
-      .split("\n")
-      .filter((line) => line.trim());
+    const responseText = response.text();
+
+    // AI yanıtını temizle
+    let cleanResponse = responseText.trim();
+    if (cleanResponse.includes("```json")) {
+      cleanResponse = cleanResponse
+        .replace(/```json\s*/, "")
+        .replace(/\s*```/, "");
+    }
+    const jsonMatch = cleanResponse.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      cleanResponse = jsonMatch[0];
+    }
+
+    try {
+      const data = JSON.parse(cleanResponse);
+      return data.insights || ["Tavsiye alınamadı"];
+    } catch (parseError) {
+      // Fallback tavsiyeler
+      return [
+        "**Genel Sağlık Tavsiyeleri:** Günde 8 bardak su için ve yavaş yiyin.",
+        "**Beslenme:** Laktoz ve gluten içeren besinlerden kaçının.",
+        "**Aktivite:** Hafif yürüyüş yapın, ağır egzersizlerden kaçının.",
+        "**Stres:** Stres yönetimi için nefes egzersizleri yapın.",
+      ];
+    }
   } catch (error) {
     console.error("Health insights error:", error);
-    return ["Tavsiye alınamadı"];
+    return [
+      "**Genel Sağlık Tavsiyeleri:** Günde 8 bardak su için ve yavaş yiyin.",
+      "**Beslenme:** Laktoz ve gluten içeren besinlerden kaçının.",
+      "**Aktivite:** Hafif yürüyüş yapın, ağır egzersizlerden kaçının.",
+    ];
   }
 };

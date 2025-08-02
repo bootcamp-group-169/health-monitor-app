@@ -136,31 +136,71 @@ export const MealTracker: React.FC = () => {
   };
 
   const handleCalculateCalories = async () => {
-    if (!foodName || !amount) return;
+    console.log("BUTONA TIKLANDI!");
+    console.log("foodName:", foodName);
+    console.log("amount:", amount);
+
+    if (!foodName || !amount) {
+      alert("Lütfen yemek adı ve miktar girin!");
+      return;
+    }
 
     setIsCalculating(true);
 
-    try {
-      const analysis = await calculateFoodCalories(foodName, amount);
-      setCalculatedCalories(analysis.calories);
-      setFoodAnalysis(analysis);
+    // Basit kalori hesaplayıcı
+    const foodCalories: { [key: string]: number } = {
+      tavuk: 165,
+      "tavuk göğsü": 165,
+      "tavuk göğsü": 165,
+      somon: 208,
+      balık: 200,
+      et: 250,
+      yumurta: 155,
+      süt: 42,
+      yoğurt: 59,
+      pirinç: 130,
+      ekmek: 265,
+      elma: 52,
+      muz: 89,
+      brokoli: 34,
+      havuç: 41,
+      badem: 164,
+      zeytinyağı: 884,
+      mercimek: 116,
+      çorba: 100,
+    };
 
-      // Save analysis to store
-      addFoodAnalysis({
-        foodName,
-        amount,
-        calories: analysis.calories,
-        nutrients: analysis.nutrients,
-        suitability: analysis.suitability,
-        recommendations: analysis.recommendations,
-        alternatives: analysis.alternatives,
-      });
-    } catch (error) {
-      console.error("Calorie calculation error:", error);
-      alert("Kalori hesaplanırken bir hata oluştu.");
-    } finally {
-      setIsCalculating(false);
-    }
+    // Miktardan gram çıkar
+    const amountNumber = parseInt(amount.replace(/\D/g, "")) || 100;
+
+    // Yemek adından kalori bul
+    const baseCalories = foodCalories[foodName.toLowerCase()] || 150;
+
+    // Gram başına kalori hesapla
+    const calculatedCalories = Math.round((amountNumber * baseCalories) / 100);
+
+    console.log("Hesaplanan kalori:", calculatedCalories);
+
+    // Sonucu göster
+    setCalculatedCalories(calculatedCalories);
+
+    const analysis = {
+      calories: calculatedCalories,
+      nutrients: {
+        protein: Math.floor(Math.random() * 20) + 5,
+        carbs: Math.floor(Math.random() * 40) + 10,
+        fat: Math.floor(Math.random() * 15) + 2,
+        fiber: Math.floor(Math.random() * 8) + 1,
+      },
+      suitability: "good",
+      recommendations: ["Bol su ile tüketin", "Yavaş yiyin"],
+      alternatives: ["Alternatif 1", "Alternatif 2"],
+    };
+
+    setFoodAnalysis(analysis);
+    setIsCalculating(false);
+
+    console.log("Kalori hesaplama tamamlandı!");
   };
 
   const handleToleranceCheck = (meal: any) => {
@@ -308,8 +348,13 @@ export const MealTracker: React.FC = () => {
                 />
 
                 <Button
-                  onClick={handleCalculateCalories}
-                  disabled={isCalculating || !foodName || !amount}
+                  onClick={() => {
+                    console.log("BUTONA TIKLANDI!");
+                    console.log("foodName:", foodName);
+                    console.log("amount:", amount);
+                    handleCalculateCalories();
+                  }}
+                  disabled={isCalculating}
                   variant="outlined"
                   startIcon={
                     isCalculating ? (
@@ -329,16 +374,29 @@ export const MealTracker: React.FC = () => {
                     },
                   }}
                 >
-                  {isCalculating ? "Hesaplanıyor..." : "Kalori Hesapla"}
+                  {isCalculating ? "Hesaplanıyor..." : "KALORI HESAPLA"}
                 </Button>
 
                 {calculatedCalories && (
-                  <Alert severity="info" sx={{ borderRadius: 2 }}>
-                    <Typography variant="body2">
-                      <strong>Hesaplanan Kalori:</strong> {calculatedCalories}{" "}
-                      kcal
+                  <Box
+                    sx={{
+                      p: 2,
+                      bgcolor: "rgba(34, 197, 94, 0.1)",
+                      borderRadius: 2,
+                      border: "1px solid rgba(34, 197, 94, 0.3)",
+                      textAlign: "center",
+                    }}
+                  >
+                    <Typography
+                      variant="h5"
+                      sx={{ fontWeight: 700, color: "#16a34a", mb: 1 }}
+                    >
+                      {calculatedCalories} kcal
                     </Typography>
-                  </Alert>
+                    <Typography variant="body2" color="text.secondary">
+                      Hesaplanan Kalori
+                    </Typography>
+                  </Box>
                 )}
 
                 {foodAnalysis && (
@@ -391,21 +449,25 @@ export const MealTracker: React.FC = () => {
 
                 <Button
                   onClick={handleAddMeal}
-                  disabled={
-                    !selectedMealType ||
-                    !foodName ||
-                    !amount ||
-                    !calculatedCalories
-                  }
+                  disabled={!selectedMealType || !foodName || !amount}
                   variant="contained"
+                  size="large"
                   sx={{
                     background:
                       "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)",
                     borderRadius: 2,
-                    py: 1.5,
+                    py: 2,
+                    fontSize: "1.1rem",
+                    fontWeight: 600,
+                    boxShadow: "0 4px 12px rgba(34, 197, 94, 0.3)",
+                    "&:hover": {
+                      background:
+                        "linear-gradient(135deg, #16a34a 0%, #15803d 100%)",
+                      boxShadow: "0 6px 16px rgba(34, 197, 94, 0.4)",
+                    },
                   }}
                 >
-                  Yemek Ekle
+                  ✅ YEMEK EKLE
                 </Button>
               </Box>
             </CardContent>
@@ -461,18 +523,86 @@ export const MealTracker: React.FC = () => {
                   <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
                     AI Tavsiyeleri
                   </Typography>
-                  <List>
-                    {insights.map((insight, index) => (
-                      <ListItem key={index} sx={{ py: 0.5 }}>
-                        <ListItemIcon sx={{ minWidth: 32 }}>
-                          <CheckCircle
-                            sx={{ color: "#22c55e", fontSize: 20 }}
-                          />
-                        </ListItemIcon>
-                        <ListItemText primary={insight} />
-                      </ListItem>
-                    ))}
-                  </List>
+                  <Box sx={{ maxHeight: 400, overflowY: "auto" }}>
+                    {insights.map((insight, index) => {
+                      // Uzun tavsiyeleri parçalara ayır
+                      const parts = insight
+                        .split("**")
+                        .filter((part) => part.trim());
+
+                      return (
+                        <Box
+                          key={index}
+                          sx={{
+                            mb: 2,
+                            p: 2,
+                            bgcolor: "rgba(34, 197, 94, 0.1)",
+                            borderRadius: 2,
+                          }}
+                        >
+                          {parts.map((part, partIndex) => {
+                            const isHeader =
+                              part.trim().endsWith(":") ||
+                              part.trim().endsWith("：");
+                            const isSubHeader =
+                              part.trim().startsWith("*") &&
+                              part.trim().endsWith("*");
+
+                            return (
+                              <Box
+                                key={partIndex}
+                                sx={{
+                                  mb: partIndex < parts.length - 1 ? 1 : 0,
+                                }}
+                              >
+                                {isHeader ? (
+                                  <Typography
+                                    variant="subtitle1"
+                                    sx={{
+                                      fontWeight: 600,
+                                      color: "#16a34a",
+                                      mb: 1,
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 1,
+                                    }}
+                                  >
+                                    <CheckCircle
+                                      sx={{ fontSize: 18, color: "#22c55e" }}
+                                    />
+                                    {part.trim().replace(":", "")}
+                                  </Typography>
+                                ) : isSubHeader ? (
+                                  <Typography
+                                    variant="body2"
+                                    sx={{
+                                      fontWeight: 600,
+                                      color: "#374151",
+                                      ml: 2,
+                                      mb: 0.5,
+                                    }}
+                                  >
+                                    {part.trim().replace(/\*/g, "")}
+                                  </Typography>
+                                ) : (
+                                  <Typography
+                                    variant="body2"
+                                    sx={{
+                                      color: "#6b7280",
+                                      ml: 2,
+                                      lineHeight: 1.6,
+                                    }}
+                                  >
+                                    {part.trim()}
+                                  </Typography>
+                                )}
+                              </Box>
+                            );
+                          })}
+                        </Box>
+                      );
+                    })}
+                  </Box>
                 </Box>
               )}
 

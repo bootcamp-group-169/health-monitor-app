@@ -24,6 +24,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useHealthStore } from "../store/healthStore";
+import { useAuthStore } from "../store/authStore";
 
 const formSchema = z.object({
   height: z
@@ -95,6 +96,7 @@ export const UserInfoPopup: React.FC<UserInfoPopupProps> = ({
   onClose,
 }) => {
   const { setUserProfile } = useHealthStore();
+  const { completeFirstLogin } = useAuthStore();
   const [activeStep, setActiveStep] = React.useState(0);
 
   const {
@@ -142,6 +144,10 @@ export const UserInfoPopup: React.FC<UserInfoPopupProps> = ({
       dietaryRestrictions: data.dietaryRestrictions,
       activityLevel: data.activityLevel,
     });
+
+    // Mark first login as complete
+    completeFirstLogin();
+
     onClose();
     setActiveStep(0);
   };

@@ -20,6 +20,7 @@ import {
   Psychology,
   CheckCircle,
   FitnessCenter,
+  HealthAndSafety,
 } from "@mui/icons-material";
 import { GlassCard } from "../components/GlassCard";
 import { useHealthStore } from "../store/healthStore";
@@ -65,12 +66,15 @@ export const Dashboard: React.FC = () => {
   return (
     <Box sx={{ p: 2, width: "100%" }}>
       {/* User Profile Summary */}
-      {(userProfile.height || userProfile.weight || userProfile.age) && (
+      {(userProfile.height ||
+        userProfile.weight ||
+        userProfile.age ||
+        userProfile.disease) && (
         <GlassCard sx={{ mb: 3 }}>
           <CardContent sx={{ p: 3 }}>
             <Grid container spacing={3}>
               {userProfile.height && (
-                <Grid item xs={12} sm={4}>
+                <Grid item xs={12} sm={6} md={3}>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
                     <Height sx={{ color: "#667eea", fontSize: 24 }} />
                     <Box>
@@ -88,7 +92,7 @@ export const Dashboard: React.FC = () => {
                 </Grid>
               )}
               {userProfile.weight && (
-                <Grid item xs={12} sm={4}>
+                <Grid item xs={12} sm={6} md={3}>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
                     <MonitorWeight sx={{ color: "#22c55e", fontSize: 24 }} />
                     <Box>
@@ -106,7 +110,7 @@ export const Dashboard: React.FC = () => {
                 </Grid>
               )}
               {userProfile.age && (
-                <Grid item xs={12} sm={4}>
+                <Grid item xs={12} sm={6} md={3}>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
                     <Cake sx={{ color: "#f59e0b", fontSize: 24 }} />
                     <Box>
@@ -118,6 +122,24 @@ export const Dashboard: React.FC = () => {
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
                         Yaş
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Grid>
+              )}
+              {userProfile.disease && (
+                <Grid item xs={12} sm={6} md={3}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                    <HealthAndSafety sx={{ color: "#ef4444", fontSize: 24 }} />
+                    <Box>
+                      <Typography
+                        variant="h6"
+                        sx={{ fontWeight: 700, mb: 0.5 }}
+                      >
+                        {userProfile.disease}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Hastalık
                       </Typography>
                     </Box>
                   </Box>
