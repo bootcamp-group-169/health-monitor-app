@@ -117,133 +117,60 @@ export const generateNutritionPlan = async (
   userProfile: UserHealthProfile
 ): Promise<NutritionPlan> => {
   try {
-    const prompt = `
-    Sen bir bağırsak hastalıkları uzmanı beslenme uzmanısın. ${
-      userProfile.disease
-    } hastalığı olan ${
-      userProfile.age
-    } yaşındaki bir hasta için 7 günlük beslenme planı oluştur.
-    
-    Hasta Bilgileri:
-    - Hastalık: ${userProfile.disease}
-    - Yaş: ${userProfile.age}
-    - Kilo: ${userProfile.weight} kg
-    - Boy: ${userProfile.height} cm
-    - Diyet Kısıtlamaları: ${userProfile.dietaryRestrictions.join(", ")}
-    - Aktivite Seviyesi: ${userProfile.activityLevel}
-    
-    SADECE JSON formatında yanıt ver, başka hiçbir şey yazma. Markdown kullanma:
-    {
-      "title": "7 Günlük Beslenme Planı",
-      "description": "Hastalığınıza özel kişiselleştirilmiş beslenme planı",
-      "duration": "7 gün",
-      "meals": [
+    // AI çağrısını kaldır, direkt plan döndür
+    const planData = {
+      title: `${userProfile.disease} Hastası için 7 Günlük Beslenme Planı`,
+      description: `${userProfile.age} yaşındaki, ${userProfile.weight} kg, ${
+        userProfile.height
+      } cm boyundaki, ${
+        userProfile.activityLevel
+      } yaşam tarzına sahip ve ${userProfile.dietaryRestrictions.join(
+        ", "
+      )} kısıtlaması olan ${
+        userProfile.disease
+      } hastası için özel olarak hazırlanmış detaylı beslenme planı.`,
+      duration: "7 gün",
+      meals: [
         {
-          "meal": "Kahvaltı",
-          "foods": ["yulaf ezmesi", "muz", "badem sütü"],
-          "calories": 300,
-          "notes": "Laktoz içermeyen süt kullanın"
+          meal: "Kahvaltı (08:00)",
+          foods: ["yulaf ezmesi", "muz", "badem sütü", "badem", "bal"],
+          calories: 380,
+          notes:
+            "Laktoz içermeyen badem sütü kullanın. Yavaş yiyin ve iyi çiğneyin.",
         },
         {
-          "meal": "Öğle Yemeği",
-          "foods": ["pirinç", "tavuk göğsü", "havuç"],
-          "calories": 450,
-          "notes": "Baharat kullanmayın"
+          meal: "Ara Öğün (10:30)",
+          foods: ["elma", "ceviz", "su"],
+          calories: 180,
+          notes: "Kabuklu meyve tüketmeyin. Bol su için.",
         },
         {
-          "meal": "Akşam Yemeği",
-          "foods": ["balık", "patates", "salata"],
-          "calories": 400,
-          "notes": "Yağsız pişirin"
-        }
+          meal: "Öğle Yemeği (13:00)",
+          foods: ["pirinç", "tavuk göğsü", "havuç", "zeytinyağı", "salata"],
+          calories: 520,
+          notes: "Baharat kullanmayın, yağsız pişirin.",
+        },
+        {
+          meal: "Ara Öğün (16:00)",
+          foods: ["yoğurt", "muz", "badem"],
+          calories: 220,
+          notes: "Laktoz içermeyen yoğurt tercih edin.",
+        },
+        {
+          meal: "Akşam Yemeği (19:00)",
+          foods: ["balık", "patates", "salata", "zeytinyağı", "limon"],
+          calories: 480,
+          notes: "Yağsız pişirin, yavaş yiyin.",
+        },
       ],
-      "recommendations": ["Günde 8 bardak su için", "Yavaş yiyin", "Gazlı içeceklerden kaçının"]
-    }`;
-
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const responseText = response.text();
-
-    // AI yanıtını temizle - JSON kısmını bul
-    let cleanResponse = responseText.trim();
-
-    // ```json ve ``` işaretlerini kaldır
-    if (cleanResponse.includes("```json")) {
-      cleanResponse = cleanResponse
-        .replace(/```json\s*/, "")
-        .replace(/\s*```/, "");
-    }
-
-    // Sadece JSON kısmını al
-    const jsonMatch = cleanResponse.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      cleanResponse = jsonMatch[0];
-    }
-
-    // JSON parse'ı güvenli hale getir
-    let planData;
-    try {
-      planData = JSON.parse(cleanResponse);
-    } catch (parseError) {
-      // Fallback plan oluştur
-      planData = {
-        title: `${userProfile.disease} Hastası için 7 Günlük Beslenme Planı`,
-        description: `${userProfile.age} yaşındaki, ${userProfile.weight} kg, ${
-          userProfile.height
-        } cm boyundaki, ${
-          userProfile.activityLevel
-        } yaşam tarzına sahip ve ${userProfile.dietaryRestrictions.join(
-          ", "
-        )} kısıtlaması olan ${
-          userProfile.disease
-        } hastası için özel olarak hazırlanmış detaylı beslenme planı.`,
-        duration: "7 gün",
-        meals: [
-          {
-            meal: "Kahvaltı (08:00)",
-            foods: ["yulaf ezmesi", "muz", "badem sütü", "badem", "bal"],
-            calories: 380,
-            notes:
-              "Laktoz içermeyen badem sütü kullanın. Yavaş yiyin ve iyi çiğneyin.",
-          },
-          {
-            meal: "Ara Öğün (10:30)",
-            foods: ["elma", "ceviz", "su"],
-            calories: 180,
-            notes: "Kabuklu meyve tüketmeyin. Bol su için.",
-          },
-          {
-            meal: "Öğle Yemeği (13:00)",
-            foods: ["pirinç", "tavuk göğsü", "havuç", "zeytinyağı", "salata"],
-            calories: 520,
-            notes: "Baharat kullanmayın, yağsız pişirin.",
-          },
-          {
-            meal: "Ara Öğün (16:00)",
-            foods: ["yoğurt", "muz", "badem"],
-            calories: 220,
-            notes: "Laktoz içermeyen yoğurt tercih edin.",
-          },
-          {
-            meal: "Akşam Yemeği (19:00)",
-            foods: ["balık", "patates", "salata", "zeytinyağı", "limon"],
-            calories: 480,
-            notes: "Yağsız pişirin, yavaş yiyin.",
-          },
-        ],
-        recommendations: [
-          "Günde 8-10 bardak su için",
-          "Yavaş yiyin ve her lokmayı iyi çiğneyin",
-          "Gazlı içecekler, kafein ve alkolden kaçının",
-          "Baharatlı, yağlı ve işlenmiş yiyeceklerden uzak durun",
-          "Düzenli öğün saatlerine uyun",
-        ],
-      };
-    }
-
-    // Sadece güvenlik kontrolü - AI'dan gelen veriyi bozma
-    if (!planData.meals) planData.meals = [];
-    if (!planData.recommendations) planData.recommendations = [];
+      recommendations: [
+        "Günde 8-10 bardak su için",
+        "Yavaş yiyin ve her lokmayı iyi çiğneyin",
+        "Gazlı içecekler, kafein ve alkolden kaçının",
+        "Baharatlı, yağlı ve işlenmiş yiyeceklerden uzak durun",
+        "Düzenli öğün saatlerine uyun",
+      ],
+    };
 
     return {
       id: Date.now().toString(),
