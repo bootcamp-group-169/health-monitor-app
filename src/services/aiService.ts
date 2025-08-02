@@ -3,7 +3,9 @@ import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 
 // Gemini API anahtarını environment variable'dan al
 const GEMINI_API_KEY =
-  import.meta.env.VITE_GEMINI_API_KEY || "your-api-key-here";
+  import.meta.env.VITE_GOOGLE_AI_API_KEY ||
+  import.meta.env.VITE_GEMINI_API_KEY ||
+  "your-api-key-here";
 
 // Environment variable'ı LangChain için de ayarla
 if (typeof window !== "undefined") {
@@ -185,33 +187,56 @@ export const generateNutritionPlan = async (
     } catch (parseError) {
       // Fallback plan oluştur
       planData = {
-        title: "7 Günlük Beslenme Planı",
-        description: "Hastalığınıza özel kişiselleştirilmiş beslenme planı",
+        title: `${userProfile.disease} Hastası için 7 Günlük Beslenme Planı`,
+        description: `${userProfile.age} yaşındaki, ${userProfile.weight} kg, ${
+          userProfile.height
+        } cm boyundaki, ${
+          userProfile.activityLevel
+        } yaşam tarzına sahip ve ${userProfile.dietaryRestrictions.join(
+          ", "
+        )} alerjisi olan ${
+          userProfile.disease
+        } hastası için kişiselleştirilmiş beslenme planı.`,
         duration: "7 gün",
         meals: [
           {
             meal: "Kahvaltı",
-            foods: ["yulaf ezmesi", "muz", "badem sütü"],
-            calories: 300,
-            notes: "Laktoz içermeyen süt kullanın",
+            foods: ["yulaf ezmesi", "muz", "badem sütü", "badem"],
+            calories: 350,
+            notes: "Laktoz içermeyen süt kullanın, yavaş yiyin",
+          },
+          {
+            meal: "Ara Öğün",
+            foods: ["elma", "ceviz"],
+            calories: 150,
+            notes: "Kabuklu meyve tüketmeyin",
           },
           {
             meal: "Öğle Yemeği",
-            foods: ["pirinç", "tavuk göğsü", "havuç"],
-            calories: 450,
-            notes: "Baharat kullanmayın",
+            foods: ["pirinç", "tavuk göğsü", "havuç", "zeytinyağı"],
+            calories: 500,
+            notes: "Baharat kullanmayın, yağsız pişirin",
+          },
+          {
+            meal: "Ara Öğün",
+            foods: ["yoğurt", "muz"],
+            calories: 200,
+            notes: "Laktoz içermeyen yoğurt tercih edin",
           },
           {
             meal: "Akşam Yemeği",
-            foods: ["balık", "patates", "salata"],
-            calories: 400,
-            notes: "Yağsız pişirin",
+            foods: ["balık", "patates", "salata", "zeytinyağı"],
+            calories: 450,
+            notes: "Yağsız pişirin, yavaş yiyin",
           },
         ],
         recommendations: [
-          "Günde 8 bardak su için",
-          "Yavaş yiyin",
+          "Günde 8-10 bardak su için",
+          "Yavaş yiyin ve iyi çiğneyin",
           "Gazlı içeceklerden kaçının",
+          "Baharatlı ve yağlı yiyeceklerden uzak durun",
+          "Düzenli öğün saatlerine uyun",
+          "Stres yönetimi için nefes egzersizleri yapın",
         ],
       };
     }
@@ -299,36 +324,53 @@ export const generateFitnessPlan = async (
     } catch (parseError) {
       // Fallback plan oluştur
       planData = {
-        title: "7 Günlük Fitness Planı",
-        description: "Hastalığınıza özel kişiselleştirilmiş fitness planı",
+        title: `${userProfile.disease} Hastası için 7 Günlük Fitness Planı`,
+        description: `${userProfile.age} yaşındaki, ${userProfile.weight} kg, ${userProfile.height} cm boyundaki, ${userProfile.activityLevel} yaşam tarzına sahip ${userProfile.disease} hastası için kişiselleştirilmiş fitness planı.`,
         duration: "7 gün",
         exercises: [
           {
-            name: "Yürüyüş",
+            name: "Hafif Yürüyüş",
             sets: 1,
             reps: 0,
-            duration: "20 dakika",
-            notes: "Yavaş tempoda yürüyün",
-          },
-          {
-            name: "Hafif Yoga",
-            sets: 1,
-            reps: 0,
-            duration: "15 dakika",
-            notes: "Karın bölgesini zorlamayın",
+            duration: "20-30 dakika",
+            notes: "Yavaş tempoda yürüyün, karın bölgesini zorlamayın",
           },
           {
             name: "Nefes Egzersizleri",
             sets: 3,
             reps: 10,
             duration: "5 dakika",
-            notes: "Derin nefes alın",
+            notes: "Derin nefes alın, stres azaltın",
+          },
+          {
+            name: "Hafif Yoga (Oturarak)",
+            sets: 1,
+            reps: 0,
+            duration: "15 dakika",
+            notes: "Karın bölgesini zorlamayın, yumuşak hareketler",
+          },
+          {
+            name: "Esneme Egzersizleri",
+            sets: 2,
+            reps: 5,
+            duration: "10 dakika",
+            notes: "Yavaş ve kontrollü hareketler yapın",
+          },
+          {
+            name: "Hafif Pilates",
+            sets: 1,
+            reps: 0,
+            duration: "15 dakika",
+            notes: "Karın kaslarını zorlamayın",
           },
         ],
         recommendations: [
-          "Günde 30 dakika egzersiz yapın",
-          "Ağır egzersizlerden kaçının",
-          "Bol su için",
+          "Günde 30-45 dakika hafif egzersiz yapın",
+          "Ağır egzersizlerden ve karın bölgesini zorlayan hareketlerden kaçının",
+          "Egzersiz öncesi ve sonrası bol su için",
+          "Stres yönetimi için nefes egzersizlerini düzenli yapın",
+          "Egzersiz sırasında rahatsızlık hissederseniz durun",
+          "Düzenli yürüyüş yapın ama aşırıya kaçmayın",
         ],
       };
     }

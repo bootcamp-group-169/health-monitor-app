@@ -29,6 +29,7 @@ import {
   FormControlLabel,
   Divider,
   Slider,
+  IconButton,
 } from "@mui/material";
 import {
   Restaurant,
@@ -42,6 +43,7 @@ import {
   Analytics,
   ThumbUp,
   ThumbDown,
+  Delete,
 } from "@mui/icons-material";
 import { GlassCard } from "../components/GlassCard";
 import { useHealthStore } from "../store/healthStore";
@@ -226,6 +228,20 @@ export const MealTracker: React.FC = () => {
     setToleranceSymptoms([]);
     setToleranceSeverity(3);
     setToleranceNotes("");
+  };
+
+  const handleDeleteMeal = (mealId: string) => {
+    if (window.confirm("Bu yemeği silmek istediğinizden emin misiniz?")) {
+      removeMeal(mealId);
+    }
+  };
+
+  const handleDeleteTolerance = (toleranceId: string) => {
+    if (window.confirm("Bu tolerans kaydını silmek istediğinizden emin misiniz?")) {
+      // removeMealTolerance fonksiyonunu store'dan alalım
+      const { removeMealTolerance } = useHealthStore.getState();
+      removeMealTolerance(toleranceId);
+    }
   };
 
   const handleGetInsights = async () => {
@@ -767,15 +783,37 @@ export const MealTracker: React.FC = () => {
                       sx={{
                         borderRadius: 2,
                         bgcolor: "rgba(255, 255, 255, 0.1)",
+                        position: "relative",
                       }}
                     >
                       <CardContent sx={{ p: 2 }}>
-                        <Typography
-                          variant="h6"
-                          sx={{ fontWeight: 600, mb: 1 }}
+                        <Box
+                          sx={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "flex-start",
+                            mb: 1,
+                          }}
                         >
-                          {meal.name}
-                        </Typography>
+                          <Typography
+                            variant="h6"
+                            sx={{ fontWeight: 600, flex: 1 }}
+                          >
+                            {meal.name}
+                          </Typography>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleDeleteMeal(meal.id)}
+                            sx={{
+                              color: "#ef4444",
+                              "&:hover": {
+                                bgcolor: "rgba(239, 68, 68, 0.1)",
+                              },
+                            }}
+                          >
+                            <Delete fontSize="small" />
+                          </IconButton>
+                        </Box>
                         <Typography
                           variant="body2"
                           color="text.secondary"
@@ -816,6 +854,7 @@ export const MealTracker: React.FC = () => {
                       sx={{
                         borderRadius: 2,
                         bgcolor: "rgba(255, 255, 255, 0.1)",
+                        position: "relative",
                       }}
                     >
                       <CardContent sx={{ p: 2 }}>
@@ -827,14 +866,28 @@ export const MealTracker: React.FC = () => {
                             mb: 2,
                           }}
                         >
-                          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                          <Typography variant="h6" sx={{ fontWeight: 600, flex: 1 }}>
                             {tolerance.foodName}
                           </Typography>
-                          {tolerance.tolerated ? (
-                            <ThumbUp sx={{ color: "#22c55e" }} />
-                          ) : (
-                            <ThumbDown sx={{ color: "#ef4444" }} />
-                          )}
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                            {tolerance.tolerated ? (
+                              <ThumbUp sx={{ color: "#22c55e" }} />
+                            ) : (
+                              <ThumbDown sx={{ color: "#ef4444" }} />
+                            )}
+                            <IconButton
+                              size="small"
+                              onClick={() => handleDeleteTolerance(tolerance.id)}
+                              sx={{
+                                color: "#ef4444",
+                                "&:hover": {
+                                  bgcolor: "rgba(239, 68, 68, 0.1)",
+                                },
+                              }}
+                            >
+                              <Delete fontSize="small" />
+                            </IconButton>
+                          </Box>
                         </Box>
                         <Typography
                           variant="body2"

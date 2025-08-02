@@ -131,11 +131,11 @@ export const AIAssistant: React.FC = () => {
       if (type === "nutrition") {
         const plan = await generateNutritionPlan(userHealthProfile);
         addNutritionPlan(plan);
-        setActiveTab(1); // Switch to plans tab
+        setActiveTab(0); // Switch to nutrition plans tab
       } else {
         const plan = await generateFitnessPlan(userHealthProfile);
         addFitnessPlan(plan);
-        setActiveTab(2); // Switch to plans tab
+        setActiveTab(1); // Switch to fitness plans tab
       }
     } catch (error) {
       console.error("Plan generation error:", error);
@@ -146,6 +146,7 @@ export const AIAssistant: React.FC = () => {
   };
 
   const handleViewPlan = (plan: any) => {
+    console.log("Viewing plan:", plan);
     setSelectedPlan(plan);
     setPlanDialogOpen(true);
   };
@@ -185,7 +186,7 @@ export const AIAssistant: React.FC = () => {
             {selectedPlan.description}
           </Typography>
 
-          {selectedPlan.meals && (
+          {selectedPlan.meals && selectedPlan.meals.length > 0 && (
             <Box sx={{ mb: 3 }}>
               <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
                 Öğünler
@@ -220,7 +221,7 @@ export const AIAssistant: React.FC = () => {
             </Box>
           )}
 
-          {selectedPlan.exercises && (
+          {selectedPlan.exercises && selectedPlan.exercises.length > 0 && (
             <Box sx={{ mb: 3 }}>
               <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
                 Egzersizler
@@ -254,30 +255,40 @@ export const AIAssistant: React.FC = () => {
             </Box>
           )}
 
-          {selectedPlan.recommendations && (
-            <Box>
-              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-                Öneriler
-              </Typography>
-              <List>
-                {selectedPlan.recommendations.map(
-                  (rec: string, index: number) => (
-                    <ListItem key={index} sx={{ py: 0.5 }}>
-                      <ListItemIcon sx={{ minWidth: 32 }}>
-                        <Typography variant="body2" color="primary">
-                          •
-                        </Typography>
-                      </ListItemIcon>
-                      <ListItemText primary={rec} />
-                    </ListItem>
-                  )
-                )}
-              </List>
-            </Box>
-          )}
+          {selectedPlan.recommendations &&
+            selectedPlan.recommendations.length > 0 && (
+              <Box>
+                <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+                  Öneriler
+                </Typography>
+                <List>
+                  {selectedPlan.recommendations.map(
+                    (rec: string, index: number) => (
+                      <ListItem key={index} sx={{ py: 0.5 }}>
+                        <ListItemIcon sx={{ minWidth: 32 }}>
+                          <Typography variant="body2" color="primary">
+                            •
+                          </Typography>
+                        </ListItemIcon>
+                        <ListItemText primary={rec} />
+                      </ListItem>
+                    )
+                  )}
+                </List>
+              </Box>
+            )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setPlanDialogOpen(false)}>Kapat</Button>
+          <Button
+            onClick={() => setPlanDialogOpen(false)}
+            variant="contained"
+            sx={{
+              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+              borderRadius: 2,
+            }}
+          >
+            Kapat
+          </Button>
         </DialogActions>
       </Dialog>
     );
@@ -466,6 +477,7 @@ export const AIAssistant: React.FC = () => {
                     Fitness Planı Oluştur
                   </Button>
                 </Grid>
+
               </Grid>
 
               {isLoading && (
